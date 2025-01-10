@@ -52,6 +52,7 @@ enum uiScreen
     MENU_CONTACTS,
     MENU_GPS,
     MENU_SETTINGS,
+    MENU_MODE,
     MENU_BACKUP_RESTORE,
     MENU_BACKUP,
     MENU_RESTORE,
@@ -62,6 +63,8 @@ enum uiScreen
     SETTINGS_DISPLAY,
     SETTINGS_GPS,
     SETTINGS_M17,
+    SETTINGS_DSTAR,
+//    SETTINGS_MODULEDSTAR,
     SETTINGS_MODULE17,
     SETTINGS_RESET2DEFAULTS,
     LOW_BAT
@@ -81,6 +84,7 @@ enum menuItems
 #ifdef CONFIG_GPS
     M_GPS,
 #endif
+    M_MODE,
     M_INFO,
     M_ABOUT,
     M_SHUTDOWN
@@ -96,8 +100,22 @@ enum settingsItems
     ,S_GPS
 #endif
     ,S_M17
+    ,S_DSTAR
     ,S_MOD17
+//    ,S_MODDSTAR
     ,S_RESET2DEFAULTS
+};
+
+enum modeItems
+{
+    M17,
+    DSTAR
+};
+
+enum modeConfItems
+{
+    M_M17,
+    M_DSTAR
 };
 
 enum backupRestoreItems
@@ -127,6 +145,16 @@ enum m17Items
     M_CAN_RX
 };
 
+enum dstarItems
+{
+    M_MyCall = 0,
+    M_UrCall,
+    M_Suffix,
+	M_Rpt1Call,
+	M_Rpt2Call,
+	M_Message
+};
+
 enum module17Items
 {
     D_MICGAIN = 0,
@@ -134,8 +162,12 @@ enum module17Items
     D_PTTOUTLEVEL,
     D_TXINVERT,
     D_RXINVERT,
+    D_DSTARTXINVERT,
+    D_DSTARRXINVERT,
     D_TXWIPER,
-    D_RXWIPER
+    D_RXWIPER,
+    D_DSTARTXWIPER,
+    D_DSTARRXWIPER
 };
 
 /**
@@ -180,6 +212,7 @@ typedef struct layout_t
     symbolSize_t line5_symbol_font;
     fontSize_t bottom_font;
     fontSize_t input_font;
+    fontSize_t dstar_message_font;
     fontSize_t menu_font;
     fontSize_t mode_font_big;
     fontSize_t mode_font_small;
@@ -196,6 +229,12 @@ typedef struct ui_state_t
     uint8_t menu_selected;
     // If true we can change a menu entry value with UP/DOWN
     bool edit_mode;
+    bool edit_mycall;
+    bool edit_urcall;
+    bool edit_suffix;
+    bool edit_rpt1call;
+    bool edit_rpt2call;
+    bool edit_message;
     // Variables used for VFO input
     uint8_t input_number;
     uint8_t input_position;
@@ -212,6 +251,7 @@ typedef struct ui_state_t
     char new_time_buf[9];
 #endif
     char new_callsign[10];
+    char new_message[21];
     // Which state to return to when we exit menu
     uint8_t last_main_state;
 }
@@ -222,20 +262,26 @@ extern layout_t layout;
 extern state_t last_state;
 extern const char *menu_items[];
 extern const char *settings_items[];
+extern const char *mode_items[];
 extern const char *display_items[];
 extern const char *settings_gps_items[];
 extern const char *m17_items[];
 extern const char *module17_items[];
+extern const char *dstar_items[];
 extern const char *backup_restore_items[];
 extern const char *info_items[];
 extern const char *authors[];
+
+extern uint8_t digital_mode;
 extern const uint8_t menu_num;
 extern const uint8_t settings_num;
+extern const uint8_t mode_num;
 extern const uint8_t display_num;
 extern const uint8_t settings_gps_num;
 extern const uint8_t backup_restore_num;
 extern const uint8_t m17_num;
 extern const uint8_t module17_num;
+extern const uint8_t dstar_num;
 extern const uint8_t info_num;
 extern const uint8_t author_num;
 extern const color_t color_black;

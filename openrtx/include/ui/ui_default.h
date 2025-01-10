@@ -28,6 +28,7 @@
 #include <event.h>
 #include <hwconfig.h>
 #include <ui.h>
+//#include <cstdint>
 
 // Maximum menu entry length
 #define MAX_ENTRY_LEN 21
@@ -51,6 +52,7 @@ enum uiScreen
     MENU_CONTACTS,
     MENU_GPS,
     MENU_SETTINGS,
+//    MENU_MODE,
     MENU_BACKUP_RESTORE,
     MENU_BACKUP,
     MENU_RESTORE,
@@ -62,6 +64,7 @@ enum uiScreen
     SETTINGS_GPS,
     SETTINGS_RADIO,
     SETTINGS_M17,
+//    SETTINGS_DSTAR,
     SETTINGS_ACCESSIBILITY,
     SETTINGS_RESET2DEFAULTS,
     LOW_BAT
@@ -84,6 +87,7 @@ enum menuItems
     M_GPS,
 #endif
     M_SETTINGS,
+//    M_MODE,
     M_INFO,
     M_ABOUT
 };
@@ -100,9 +104,16 @@ enum settingsItems
     S_RADIO,
 #ifdef CONFIG_M17
     S_M17,
+ //   S_DSTAR,
 #endif
     S_ACCESSIBILITY,
     S_RESET2DEFAULTS,
+};
+
+enum modeItems
+{
+    M17,
+    DSTAR
 };
 
 enum backupRestoreItems
@@ -238,17 +249,22 @@ extern state_t last_state;
 extern bool    macro_latched;
 extern const char *menu_items[];
 extern const char *settings_items[];
+extern const char *mode_items[];
 extern const char *display_items[];
 extern const char *settings_gps_items[];
 extern const char *settings_radio_items[];
 extern const char *settings_m17_items[];
-extern const char * settings_accessibility_items[];
-
+extern const char *settings_accessibility_items[];
+extern const char *mode_items[];
 extern const char *backup_restore_items[];
 extern const char *info_items[];
 extern const char *authors[];
+
+extern uint8_t digital_mode;
 extern const uint8_t menu_num;
+extern const uint8_t mode_num;
 extern const uint8_t settings_num;
+extern const uint8_t mode_num;
 extern const uint8_t display_num;
 extern const uint8_t settings_gps_num;
 extern const uint8_t settings_radio_num;

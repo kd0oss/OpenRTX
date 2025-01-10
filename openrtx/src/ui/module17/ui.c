@@ -49,6 +49,7 @@ extern void _ui_drawMenuGPS();
 extern void _ui_drawSettingsGPS(ui_state_t* ui_state);
 #endif
 extern void _ui_drawMenuSettings(ui_state_t* ui_state);
+extern void _ui_drawMenuMode(ui_state_t* ui_state);
 extern void _ui_drawMenuInfo(ui_state_t* ui_state);
 extern void _ui_drawMenuAbout();
 #ifdef CONFIG_RTC
@@ -58,12 +59,14 @@ extern void _ui_drawSettingsTimeDateSet(ui_state_t* ui_state);
 extern void _ui_drawSettingsDisplay(ui_state_t* ui_state);
 extern void _ui_drawSettingsM17(ui_state_t* ui_state);
 extern void _ui_drawSettingsModule17(ui_state_t* ui_state);
+extern void _ui_drawSettingsDSTAR(ui_state_t* ui_state);
 extern void _ui_drawSettingsReset2Defaults(ui_state_t* ui_state);
 extern bool _ui_drawMacroMenu(ui_state_t* ui_state);
 
 const char *menu_items[] =
 {
     "Settings",
+    "Mode",
 #ifdef CONFIG_GPS
     "GPS",
 #endif
@@ -82,13 +85,20 @@ const char *settings_items[] =
     "GPS",
 #endif
     "M17",
+    "DSTAR",
     "Module 17",
+//    "Module DSTAR",
     "Default Settings"
 };
 
 const char *display_items[] =
 {
-    "Brightness",
+    "Brightness"
+};
+
+const char *mode_items[] =
+{
+    "Current mode:",
 };
 
 const char *m17_items[] =
@@ -98,6 +108,16 @@ const char *m17_items[] =
     "CAN RX Check"
 };
 
+const char *dstar_items[] =
+{
+    "My Call",
+    "Ur Call",
+    "Suffix",
+	"Rp1 Call",
+	"Rp2 Call",
+	"Mesg"
+};
+
 const char *module17_items[] =
 {
     "Mic Gain",
@@ -105,8 +125,12 @@ const char *module17_items[] =
     "PTT Out",
     "TX Phase",
     "RX Phase",
+    "D* TX Phase",
+    "D* RX Phase",
     "TX Softpot",
-    "RX Softpot"
+    "RX Softpot",
+    "D* TX Softpot",
+    "D* RX Softpot"
 };
 
 #ifdef CONFIG_GPS
@@ -141,6 +165,7 @@ static const char symbols_callsign[] = "_ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890/-.
 
 // Calculate number of menu entries
 const uint8_t menu_num = sizeof(menu_items)/sizeof(menu_items[0]);
+const uint8_t mode_num = sizeof(mode_items)/sizeof(mode_items[0]);
 const uint8_t settings_num = sizeof(settings_items)/sizeof(settings_items[0]);
 const uint8_t display_num = sizeof(display_items)/sizeof(display_items[0]);
 #ifdef CONFIG_GPS
@@ -148,6 +173,7 @@ const uint8_t settings_gps_num = sizeof(settings_gps_items)/sizeof(settings_gps_
 #endif
 const uint8_t m17_num = sizeof(m17_items)/sizeof(m17_items[0]);
 const uint8_t module17_num = sizeof(module17_items)/sizeof(module17_items[0]);
+const uint8_t dstar_num = sizeof(dstar_items)/sizeof(dstar_items[0]);
 const uint8_t info_num = sizeof(info_items)/sizeof(info_items[0]);
 const uint8_t author_num = sizeof(authors)/sizeof(authors[0]);
 
@@ -160,6 +186,8 @@ layout_t layout;
 state_t last_state;
 static ui_state_t ui_state;
 static bool layout_ready = false;
+
+uint8_t digital_mode = 0;
 
 // UI event queue
 static uint8_t evQueue_rdPos;
@@ -209,6 +237,8 @@ static layout_t _ui_calculateLayout()
     const fontSize_t bottom_font = FONT_SIZE_6PT;
     // TimeDate/Frequency input font
     const fontSize_t input_font = FONT_SIZE_8PT;
+    // DSTAR Message font
+    const fontSize_t dstar_message_font = FONT_SIZE_6PT;
     // Menu font
     const fontSize_t menu_font = FONT_SIZE_6PT;
     // Mode screen frequency font: 9 pt
@@ -261,6 +291,7 @@ static layout_t _ui_calculateLayout()
         line5_symbol_size,
         bottom_font,
         input_font,
+		dstar_message_font,
         menu_font,
         mode_font_big,
         mode_font_small
@@ -431,14 +462,38 @@ static void _ui_menuBack(uint8_t prev_state)
 {
     if(ui_state.edit_mode)
     {
-        ui_state.edit_mode = false;
+    	ui_state.edit_mode = false;
+    }
+    else if(ui_state.edit_mycall)
+    {
+    	ui_state.edit_mycall = false;
+    }
+    else if(ui_state.edit_urcall)
+    {
+    	ui_state.edit_urcall = false;
+    }
+    else if(ui_state.edit_rpt1call)
+    {
+    	ui_state.edit_rpt1call = false;
+    }
+    else if(ui_state.edit_rpt2call)
+    {
+    	ui_state.edit_rpt2call = false;
+    }
+    else if(ui_state.edit_suffix)
+    {
+    	ui_state.edit_suffix = false;
+    }
+    else if(ui_state.edit_message)
+    {
+    	ui_state.edit_message = false;
     }
     else
     {
-        // Return to previous menu
-        state.ui_screen = prev_state;
-        // Reset menu selection
-        ui_state.menu_selected = 0;
+    	// Return to previous menu
+		state.ui_screen = prev_state;
+    	// Reset menu selection
+		ui_state.menu_selected = 0;
     }
 }
 
@@ -500,6 +555,7 @@ void ui_updateFSM(bool *sync_rtx)
 {
     // Check for events
     if(evQueue_wrPos == evQueue_rdPos) return;
+  //  usart1_writeBlock((void*)"FSM update\n", 11);
 
     // Pop an event from the queue
     uint8_t newTail = (evQueue_rdPos + 1) % MAX_NUM_EVENTS;
@@ -557,6 +613,9 @@ void ui_updateFSM(bool *sync_rtx)
                 {
                     switch(ui_state.menu_selected)
                     {
+                        case M_MODE:
+                            state.ui_screen = MENU_MODE;
+                            break;
                         case M_SETTINGS:
                             state.ui_screen = MENU_SETTINGS;
                             break;
@@ -594,6 +653,9 @@ void ui_updateFSM(bool *sync_rtx)
                         case S_M17:
                             state.ui_screen = SETTINGS_M17;
                             break;
+                        case S_DSTAR:
+                            state.ui_screen = SETTINGS_DSTAR;
+                            break;
                         case S_MOD17:
                             state.ui_screen = SETTINGS_MODULE17;
                             break;
@@ -628,6 +690,29 @@ void ui_updateFSM(bool *sync_rtx)
                 else if(msg.keys & KEY_DOWN || msg.keys & KNOB_RIGHT)
                     ui_state.menu_selected += 1;
                 else if(msg.keys & KEY_ESC)
+                    _ui_menuBack(MENU_TOP);
+                break;
+            // Op Mode screen
+            case MENU_MODE:
+                if(msg.keys & KEY_LEFT)
+                {
+                    if (digital_mode > 0)
+                        digital_mode -= 1;
+                }
+                if(msg.keys & KEY_RIGHT)
+                {
+                    if (digital_mode < 1)
+                        digital_mode += 1;
+                }
+                if (msg.keys & KEY_LEFT || msg.keys & KEY_RIGHT)
+                {
+                    if (digital_mode == 0)
+                        state.channel.mode = OPMODE_M17;
+                    else
+                        state.channel.mode = OPMODE_DSTAR;
+                    *sync_rtx = true;
+                }
+                if(msg.keys & KEY_ESC)
                     _ui_menuBack(MENU_TOP);
                 break;
 
@@ -765,6 +850,11 @@ void ui_updateFSM(bool *sync_rtx)
                         mod17CalData.bb_rx_invert = 0;
                         mod17CalData.mic_gain     = 0;
 
+                        mod17CalData.dstar_tx_wiper     = 0x080;
+                        mod17CalData.dstar_rx_wiper     = 0x080;
+                        mod17CalData.dstar_bb_tx_invert = 0;
+                        mod17CalData.dstar_bb_rx_invert = 0;
+
                         state_resetSettingsAndVfo();
                         nvm_writeSettings(&state.settings);
                         _ui_menuBack(MENU_SETTINGS);
@@ -776,64 +866,225 @@ void ui_updateFSM(bool *sync_rtx)
                     }
                 }
                 break;
+            case SETTINGS_DSTAR:
+                if(ui_state.edit_mycall)
+                {
+                    if(msg.keys & KEY_ENTER)
+                    {
+                        _ui_textInputConfirm(ui_state.new_callsign);
+                        // Save selected callsign and disable input mode
+                        strncpy(state.settings.dstar_mycall, ui_state.new_callsign, 9);
+                        ui_state.edit_mycall = false;
+                    }
+                    else if(msg.keys & KEY_ESC)
+                        ui_state.edit_mycall = false;
+                    else
+                        _ui_textInputArrows(ui_state.new_callsign, 8, msg);
+                }
+                else if(ui_state.edit_urcall)
+                {
+                    if(msg.keys & KEY_ENTER)
+                    {
+                        _ui_textInputConfirm(ui_state.new_callsign);
+                        // Save selected callsign and disable input mode
+                        strncpy(state.settings.dstar_urcall, ui_state.new_callsign, 9);
+                        ui_state.edit_urcall = false;
+                    }
+                    else if(msg.keys & KEY_ESC)
+                        ui_state.edit_urcall = false;
+                    else
+                        _ui_textInputArrows(ui_state.new_callsign, 8, msg);
+                }
+                else if(ui_state.edit_rpt1call)
+                {
+                    if(msg.keys & KEY_ENTER)
+                    {
+                        _ui_textInputConfirm(ui_state.new_callsign);
+                        // Save selected callsign and disable input mode
+                        strncpy(state.settings.dstar_rpt1call, ui_state.new_callsign, 9);
+                        ui_state.edit_rpt1call = false;
+                    }
+                    else if(msg.keys & KEY_ESC)
+                        ui_state.edit_rpt1call = false;
+                    else
+                        _ui_textInputArrows(ui_state.new_callsign, 8, msg);
+                }
+                else if(ui_state.edit_rpt2call)
+                {
+                    if(msg.keys & KEY_ENTER)
+                    {
+                        _ui_textInputConfirm(ui_state.new_callsign);
+                        // Save selected callsign and disable input mode
+                        strncpy(state.settings.dstar_rpt2call, ui_state.new_callsign, 9);
+                        ui_state.edit_rpt2call = false;
+                    }
+                    else if(msg.keys & KEY_ESC)
+                        ui_state.edit_rpt2call = false;
+                    else
+                        _ui_textInputArrows(ui_state.new_callsign, 8, msg);
+                }
+                else if(ui_state.edit_suffix)
+                {
+                    if(msg.keys & KEY_ENTER)
+                    {
+                        _ui_textInputConfirm(ui_state.new_callsign);
+                        // Save selected callsign and disable input mode
+                        strncpy(state.settings.dstar_suffix, ui_state.new_callsign, 5);
+                        ui_state.edit_suffix = false;
+                    }
+                    else if(msg.keys & KEY_ESC)
+                        ui_state.edit_suffix = false;
+                    else
+                        _ui_textInputArrows(ui_state.new_callsign, 4, msg);
+                }
+                else if(ui_state.edit_message)
+                {
+                    if(msg.keys & KEY_ENTER)
+                    {
+                        _ui_textInputConfirm(ui_state.new_message);
+                        // Save selected callsign and disable input mode
+                        strncpy(state.settings.dstar_message, ui_state.new_message, 21);
+                        ui_state.edit_message = false;
+                    }
+                    else if(msg.keys & KEY_ESC)
+                        ui_state.edit_message = false;
+                    else
+                        _ui_textInputArrows(ui_state.new_message, 20, msg);
+                }
+                else
+                {
+                	if(msg.keys & KEY_ENTER)
+                	{
+                		switch(ui_state.menu_selected)
+                		{
+                		    // Enable mycall input
+                		case M_MyCall:
+                			ui_state.edit_mycall = true;
+                			_ui_textInputReset(ui_state.new_callsign);
+                			break;
+                			// Enable mycall input
+                		case M_UrCall:
+                			ui_state.edit_urcall = true;
+                			_ui_textInputReset(ui_state.new_callsign);
+                			break;
+                			// Enable rpt1call input
+                		case M_Rpt1Call:
+                			ui_state.edit_rpt1call = true;
+                			_ui_textInputReset(ui_state.new_callsign);
+                			break;
+                			// Enable rpt2call input
+                		case M_Rpt2Call:
+                			ui_state.edit_rpt2call = true;
+                			_ui_textInputReset(ui_state.new_callsign);
+                			break;
+                			// Enable suffix input
+                		case M_Suffix:
+                			ui_state.edit_suffix = true;
+                			_ui_textInputReset(ui_state.new_callsign);
+                			break;
+                			// Enable message input
+                		case M_Message:
+                			ui_state.edit_message = true;
+                			_ui_textInputReset(ui_state.new_message);
+                			break;
+                		default:
+                			state.ui_screen = SETTINGS_M17;
+                		}
+                	}
+                	else if(msg.keys & KEY_UP || msg.keys & KNOB_LEFT)
+                		_ui_menuUp(dstar_num);
+                	else if(msg.keys & KEY_DOWN || msg.keys & KNOB_RIGHT)
+                		_ui_menuDown(dstar_num);
+                	else if(msg.keys & KEY_ESC)
+                	{
+                		*sync_rtx = true;
+                		nvm_writeSettings(&state.settings);
+                		_ui_menuBack(MENU_SETTINGS);
+                	}
+                }
+                break;
             // Module17 Settings
             case SETTINGS_MODULE17:
                 if(msg.keys & KEY_LEFT)
                 {
                     switch(ui_state.menu_selected)
                     {
-                        case D_TXWIPER:
-                            _ui_changeWiper(&mod17CalData.tx_wiper, -1);
-                            break;
-                        case D_RXWIPER:
-                            _ui_changeWiper(&mod17CalData.rx_wiper, -1);
-                            break;
-                        case D_TXINVERT:
-                            mod17CalData.bb_tx_invert -= 1;
-                            break;
-                        case D_RXINVERT:
-                            mod17CalData.bb_rx_invert -= 1;
-                            break;
-                        case D_MICGAIN:
-                            _ui_changeMicGain(-1);
-                            break;
-                        case D_PTTINLEVEL:
-                            mod17CalData.ptt_in_level -= 1;
-                            break;
-                        case D_PTTOUTLEVEL:
-                            mod17CalData.ptt_out_level -= 1;
-                            break;
-                        default:
-                            state.ui_screen = SETTINGS_MODULE17;
+                    case D_TXWIPER:
+                        _ui_changeWiper(&mod17CalData.tx_wiper, -1);
+                        break;
+                    case D_RXWIPER:
+                        _ui_changeWiper(&mod17CalData.rx_wiper, -1);
+                        break;
+                    case D_DSTARTXWIPER:
+                        _ui_changeWiper(&mod17CalData.dstar_tx_wiper, -1);
+                        break;
+                    case D_DSTARRXWIPER:
+                        _ui_changeWiper(&mod17CalData.dstar_rx_wiper, -1);
+                        break;
+                    case D_TXINVERT:
+                        mod17CalData.bb_tx_invert -= 1;
+                        break;
+                    case D_RXINVERT:
+                        mod17CalData.bb_rx_invert -= 1;
+                        break;
+                    case D_DSTARTXINVERT:
+                        mod17CalData.dstar_bb_tx_invert -= 1;
+                        break;
+                    case D_DSTARRXINVERT:
+                    	mod17CalData.dstar_bb_rx_invert -= 1;
+                    	break;
+                    case D_MICGAIN:
+                    	_ui_changeMicGain(-1);
+                    	break;
+                    case D_PTTINLEVEL:
+                    	mod17CalData.ptt_in_level -= 1;
+                    	break;
+                    case D_PTTOUTLEVEL:
+                    	mod17CalData.ptt_out_level -= 1;
+                    	break;
+                    default:
+                    	state.ui_screen = SETTINGS_MODULE17;
                     }
                 }
                 else if(msg.keys & KEY_RIGHT)
                 {
                     switch(ui_state.menu_selected)
                     {
-                        case D_TXWIPER:
-                            _ui_changeWiper(&mod17CalData.tx_wiper, +1);
-                            break;
-                        case D_RXWIPER:
-                            _ui_changeWiper(&mod17CalData.rx_wiper, +1);
-                            break;
-                        case D_TXINVERT:
-                            mod17CalData.bb_tx_invert += 1;
-                            break;
-                        case D_RXINVERT:
-                            mod17CalData.bb_rx_invert += 1;
-                            break;
-                        case D_MICGAIN:
-                            _ui_changeMicGain(+1);
-                            break;
-                        case D_PTTINLEVEL:
-                            mod17CalData.ptt_in_level += 1;
-                            break;
-                        case D_PTTOUTLEVEL:
-                            mod17CalData.ptt_out_level += 1;
-                            break;
-                        default:
-                            state.ui_screen = SETTINGS_MODULE17;
+                    case D_TXWIPER:
+                        _ui_changeWiper(&mod17CalData.tx_wiper, +1);
+                        break;
+                    case D_RXWIPER:
+                        _ui_changeWiper(&mod17CalData.rx_wiper, +1);
+                        break;
+                    case D_DSTARTXWIPER:
+                        _ui_changeWiper(&mod17CalData.dstar_tx_wiper, +1);
+                        break;
+                    case D_DSTARRXWIPER:
+                        _ui_changeWiper(&mod17CalData.dstar_rx_wiper, +1);
+                        break;
+                    case D_TXINVERT:
+                        mod17CalData.bb_tx_invert += 1;
+                        break;
+                    case D_RXINVERT:
+                        mod17CalData.bb_rx_invert += 1;
+                        break;
+                    case D_DSTARTXINVERT:
+                        mod17CalData.dstar_bb_tx_invert += 1;
+                        break;
+                    case D_DSTARRXINVERT:
+                    	mod17CalData.dstar_bb_rx_invert += 1;
+                    	break;
+                    case D_MICGAIN:
+                    	_ui_changeMicGain(+1);
+                    	break;
+                    case D_PTTINLEVEL:
+                    	mod17CalData.ptt_in_level += 1;
+                    	break;
+                    case D_PTTOUTLEVEL:
+                    	mod17CalData.ptt_out_level += 1;
+                    	break;
+                    default:
+                    	state.ui_screen = SETTINGS_MODULE17;
                     }
                 }
                 else if(msg.keys & KEY_UP || msg.keys & KNOB_LEFT)
@@ -852,6 +1103,7 @@ void ui_updateFSM(bool *sync_rtx)
 
 bool ui_updateGUI()
 {
+//    usart1_writeBlock((void*)"GUI update\n", 11);
     if(!layout_ready)
     {
         layout = _ui_calculateLayout();
@@ -872,6 +1124,10 @@ bool ui_updateGUI()
         case MENU_SETTINGS:
             _ui_drawMenuSettings(&ui_state);
             break;
+        // Op Mode menu screen
+        case MENU_MODE:
+            _ui_drawMenuMode(&ui_state);
+            break;
         // Info menu screen
         case MENU_INFO:
             _ui_drawMenuInfo(&ui_state);
@@ -882,13 +1138,17 @@ bool ui_updateGUI()
             break;
         // Display settings screen
         case SETTINGS_DISPLAY:
-            _ui_drawSettingsDisplay(&ui_state);
-            break;
-        // M17 settings screen
+        	_ui_drawSettingsDisplay(&ui_state);
+        	break;
+        	// M17 settings screen
         case SETTINGS_M17:
-            _ui_drawSettingsM17(&ui_state);
-            break;
-        // Module 17 settings screen
+        	_ui_drawSettingsM17(&ui_state);
+        	break;
+        	// M17 settings screen
+        case SETTINGS_DSTAR:
+        	_ui_drawSettingsDSTAR(&ui_state);
+        	break;
+        	// Module 17 settings screen
         case SETTINGS_MODULE17:
             _ui_drawSettingsModule17(&ui_state);
             break;

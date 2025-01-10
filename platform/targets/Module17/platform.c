@@ -31,6 +31,8 @@
 #include <hwconfig.h>
 #include <MCP4551.h>
 #include <errno.h>
+#include <string.h>
+//#include <drivers/USART3_MOD17.h> // used for debugging
 
 
 ADC_STM32_DEVICE_DEFINE(adc1, ADC1, NULL, 3300000)
@@ -95,6 +97,8 @@ void platform_init()
         gpio_setMode(I2C1_SDA, ALTERNATE_OD | ALTERNATE_FUNC(4));
     }
 
+  //  usart3_mod17_init(230400);
+
     i2c_init(&i2c1, i2cSpeed);
 
     nvm_init();
@@ -115,6 +119,11 @@ void platform_init()
     mod17CalData.bb_tx_invert = 0;
     mod17CalData.bb_rx_invert = 0;
     mod17CalData.mic_gain     = 0;
+
+    mod17CalData.dstar_tx_wiper     = 0x080;
+    mod17CalData.dstar_rx_wiper     = 0x080;
+    mod17CalData.dstar_bb_tx_invert = 0;
+    mod17CalData.dstar_bb_rx_invert = 0;
 
     /*
      * Hardware version is set using a voltage divider on PA3.
@@ -167,6 +176,8 @@ void platform_init()
 
 void platform_terminate()
 {
+ //   usart3_mod17_terminate();
+
     /* Shut down LEDs */
     gpio_clearPin(PTT_LED);
     gpio_clearPin(SYNC_LED);
@@ -218,6 +229,14 @@ bool platform_getPttStatus()
 bool platform_pwrButtonStatus()
 {
     return true;
+}
+
+void platform_PTT(bool ptt)
+{
+    if(ptt)
+        gpio_setPin(PTT_OUT);
+    else
+        gpio_clearPin(PTT_OUT);
 }
 
 void platform_ledOn(led_t led)

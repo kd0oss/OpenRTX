@@ -62,6 +62,13 @@ typedef struct
             _reserved       : 3;
     bool    m17_can_rx;           // Check M17 CAN on RX
     char    m17_dest[10];         // M17 destination
+    char    dstar_mycall[9];      // DSTAR MyCall
+    char    dstar_urcall[9];      // DSTAR UrCall
+    char    dstar_rpt1call[9];    // DSTAR Rpt1Call
+    char    dstar_rpt2call[9];    // DSTAR Rpt2Call
+    char    dstar_suffix[5];      // DSTAR Suffix
+    char    dstar_message[21];    // DSTAR slow speed txt
+    char    dstar_header[38];     // DSTAR TX header data
 }
 __attribute__((packed)) settings_t;
 
@@ -86,7 +93,14 @@ static const settings_t default_settings =
     1,                            // Automatic latch of macro menu enabled
     0,                            // not used
     false,                        // Check M17 CAN on RX
-    ""                            // Empty M17 destination
+    "",                           // Empty M17 destination
+	"",                           // Empty DSTAR MyCall
+	"",                           // Empty DSTAR UrCall
+	"",                           // Empty DSTAR Rpt1Call
+	"",                           // Empty DSTAR Rpt2Call
+	"",                           // Empty DSTAR Suffix
+	"",                           // Empty DSTAR slow speed txt
+	""                            // Empty DSTAR TX header data
 };
 
 #endif /* SETTINGS_H */

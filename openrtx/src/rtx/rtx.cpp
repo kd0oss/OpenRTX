@@ -16,6 +16,8 @@
  *                                                                         *
  *   You should have received a copy of the GNU General Public License     *
  *   along with this program; if not, see <http://www.gnu.org/licenses/>   *
+ *                                                                         *
+ *   (2025) Modified by KD0OSS for DSTAR use on Module17/OpenRTX           *
  ***************************************************************************/
 
 #include <interfaces/radio.h>
@@ -24,6 +26,7 @@
 #include <rtx.h>
 #include <OpMode_FM.hpp>
 #include <OpMode_M17.hpp>
+#include <OpMode_DSTAR.hpp>
 
 static pthread_mutex_t   *cfgMutex;     // Mutex for incoming config messages
 static const rtxStatus_t *newCnf;       // Pointer for incoming config messages
@@ -35,7 +38,12 @@ static OpMode  *currMode;               // Pointer to currently active opMode ha
 static OpMode     noMode;               // Empty opMode handler for opmode::NONE
 static OpMode_FM  fmMode;               // FM mode handler
 #ifdef CONFIG_M17
-static OpMode_M17 m17Mode;              // M17 mode handler
+static OpMode_M17   m17Mode;            // M17 mode handler
+#endif
+#ifdef CONFIG_DSTAR
+static OpMode_DSTAR dstarMode;          // DSTAR mode handler
+#include <drivers/usb_vcom.h>
+bool host_found = false;
 #endif
 
 
@@ -66,6 +74,12 @@ void rtx_init(pthread_mutex_t *m)
     rtxStatus.M17_dst[0]    = '\0';
     rtxStatus.M17_link[0]   = '\0';
     rtxStatus.M17_refl[0]   = '\0';
+    rtxStatus.DSTAR_src[0]  = '\0';
+    rtxStatus.DSTAR_dst[0]  = '\0';
+    rtxStatus.DSTAR_link[0] = '\0';
+    rtxStatus.DSTAR_refl[0] = '\0';
+    rtxStatus.DSTAR_message[0] = '\0';
+
     currMode = &noMode;
 
     /*
@@ -156,7 +170,10 @@ void rtx_task()
                 case OPMODE_NONE: currMode = &noMode;  break;
                 case OPMODE_FM:   currMode = &fmMode;  break;
                 #ifdef CONFIG_M17
-                case OPMODE_M17:  currMode = &m17Mode; break;
+                case OPMODE_M17:    currMode = &m17Mode; break;
+                #endif
+                #ifdef CONFIG_DSTAR
+                case OPMODE_DSTAR:  currMode = &dstarMode; break;
                 #endif
                 default:   currMode = &noMode;
             }

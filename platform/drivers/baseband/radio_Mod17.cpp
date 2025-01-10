@@ -16,6 +16,8 @@
  *                                                                         *
  *   You should have received a copy of the GNU General Public License     *
  *   along with this program; if not, see <http://www.gnu.org/licenses/>   *
+ *                                                                         *
+ *   (2025) Modified by KD0OSS for DSTAR use in Module17/OpenRTX           *
  ***************************************************************************/
 
 #include <interfaces/radio.h>
@@ -26,6 +28,7 @@
 #include "../audio/MAX9814.h"
 
 static enum  opstatus      radioStatus;   // Current operating status
+enum opmode current_mode = OPMODE_M17;    // Set default mode
 extern mod17Calib_t mod17CalData;         // Calibration data
 
 
@@ -46,7 +49,7 @@ void radio_terminate()
 
 void radio_setOpmode(const enum opmode mode)
 {
-    (void) mode;
+    current_mode = mode;
 }
 
 bool radio_checkRxDigitalSquelch()
@@ -68,8 +71,17 @@ void radio_enableRx()
 {
     radioStatus = RX;
 
-    mcp4551_setWiper(&i2c1, SOFTPOT_TX, mod17CalData.tx_wiper);
-    mcp4551_setWiper(&i2c1, SOFTPOT_RX, mod17CalData.rx_wiper);
+    if(current_mode == OPMODE_M17)
+    {
+    	mcp4551_setWiper(&i2c1, SOFTPOT_TX, mod17CalData.tx_wiper);
+    	mcp4551_setWiper(&i2c1, SOFTPOT_RX, mod17CalData.rx_wiper);
+    }
+    else
+    	if(current_mode == OPMODE_DSTAR)
+    	{
+    		mcp4551_setWiper(&i2c1, SOFTPOT_TX, mod17CalData.dstar_tx_wiper);
+    		mcp4551_setWiper(&i2c1, SOFTPOT_RX, mod17CalData.dstar_rx_wiper);
+    	}
 
     // Module17 PTT output is open drain. This means that, on MCU side, we have
     // to assert the gpio to bring it to low state.
@@ -83,10 +95,19 @@ void radio_enableTx()
 {
     radioStatus = TX;
 
-    mcp4551_setWiper(&i2c1, SOFTPOT_TX, mod17CalData.tx_wiper);
-    mcp4551_setWiper(&i2c1, SOFTPOT_RX, mod17CalData.rx_wiper);
-    max9814_setGain(mod17CalData.mic_gain);
+    if(current_mode == OPMODE_M17)
+    {
+    	mcp4551_setWiper(&i2c1, SOFTPOT_TX, mod17CalData.tx_wiper);
+    	mcp4551_setWiper(&i2c1, SOFTPOT_RX, mod17CalData.rx_wiper);
+    }
+    else
+    	if(current_mode == OPMODE_DSTAR)
+    	{
+    		mcp4551_setWiper(&i2c1, SOFTPOT_TX, mod17CalData.dstar_tx_wiper);
+    		mcp4551_setWiper(&i2c1, SOFTPOT_RX, mod17CalData.dstar_rx_wiper);
+    	}
 
+    max9814_setGain(mod17CalData.mic_gain);
     if(mod17CalData.ptt_out_level)
         gpio_clearPin(PTT_OUT);
     else

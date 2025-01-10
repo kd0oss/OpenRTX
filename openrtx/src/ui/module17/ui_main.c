@@ -24,6 +24,11 @@
 #include <stdint.h>
 #include <ui/ui_mod17.h>
 #include <string.h>
+#include <unistd.h>
+
+#ifdef CONFIG_DSTAR
+extern bool host_found;
+#endif
 
 void _ui_drawMainBackground()
 {
@@ -130,7 +135,105 @@ static void _ui_drawModeInfo(ui_state_t* ui_state)
                 }
                 break;
             }
+            break;
         }
+
+        case OPMODE_DSTAR:
+        {
+            rtxStatus_t rtxStatus = rtx_getCurrentStatus();
+
+            if(rtxStatus.lsfOk)
+            {
+                gfx_drawSymbol(layout.line2_pos, layout.line2_symbol_font, TEXT_ALIGN_LEFT,
+                               color_white, SYMBOL_CALL_RECEIVED);
+
+                gfx_print(layout.line2_pos, layout.line2_font, TEXT_ALIGN_CENTER,
+                          color_white, "%s", rtxStatus.DSTAR_dst);
+
+                gfx_drawSymbol(layout.line1_pos, layout.line1_symbol_font, TEXT_ALIGN_LEFT,
+                               color_white, SYMBOL_CALL_MADE);
+
+                gfx_print(layout.line1_pos, layout.line2_font, TEXT_ALIGN_CENTER,
+                          color_white, "%s", rtxStatus.DSTAR_src);
+
+                gfx_print(layout.line5_pos, layout.line2_font, TEXT_ALIGN_CENTER,
+                          color_white, "%s", rtxStatus.DSTAR_message);
+
+                if(rtxStatus.DSTAR_link[0] != '\0')
+                {
+                    gfx_drawSymbol(layout.line4_pos, layout.line3_symbol_font, TEXT_ALIGN_LEFT,
+                                color_white, SYMBOL_ACCESS_POINT);
+
+                    gfx_print(layout.line4_pos, layout.line2_font, TEXT_ALIGN_CENTER,
+                            color_white, "%s", rtxStatus.DSTAR_link);
+                }
+
+                if(rtxStatus.DSTAR_refl[0] != '\0')
+                {
+                    gfx_drawSymbol(layout.line3_pos, layout.line4_symbol_font, TEXT_ALIGN_LEFT,
+                                   color_white, SYMBOL_NETWORK);
+
+                    gfx_print(layout.line3_pos, layout.line2_font, TEXT_ALIGN_CENTER,
+                              color_white, "%s", rtxStatus.DSTAR_refl);
+                }
+            }
+            else
+            {
+                char *dst = NULL;
+                char *last = NULL;
+
+                if(ui_state->edit_mycall)
+                {
+                    dst = last_state.settings.dstar_mycall;
+                }
+                else
+                {
+                    if(strnlen(rtxStatus.destination_address, 10) == 0)
+                        dst = "--";
+                    else
+                        dst = rtxStatus.destination_address;
+                }
+
+                if(strnlen(rtxStatus.DSTAR_src, 10) == 0)
+                {
+                	if (host_found)
+                        last = "LAST";
+                	else
+                		last = "Waiting on host";
+                }
+                else
+                    last = rtxStatus.DSTAR_src;
+
+                gfx_print(layout.top_pos, layout.top_font, TEXT_ALIGN_RIGHT,
+                          color_white, "%s", "DSTAR");
+
+                // Print DSTAR Destination ID on line 2
+                gfx_print(layout.line2_pos, layout.line2_font, TEXT_ALIGN_CENTER,
+                          color_white, last);
+
+                gfx_print(layout.line3_pos, layout.line3_font, TEXT_ALIGN_CENTER,
+                          color_white, "%s", dst);
+
+                if (ui_state->edit_mode)
+                {
+                    // Print Button Info
+                    gfx_print(layout.line5_pos, layout.line5_font, TEXT_ALIGN_LEFT,
+                              color_white, "Cancel");
+
+                    gfx_print(layout.line5_pos, layout.line5_font, TEXT_ALIGN_RIGHT,
+                              color_white, "Accept");
+                }
+                else
+                {
+                    // Menu
+                    gfx_print(layout.line5_pos, layout.line5_font, TEXT_ALIGN_RIGHT,
+                              color_white, "Menu");
+                }
+                break;
+            }
+            break;
+        }
+
     }
 }
 

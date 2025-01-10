@@ -47,6 +47,12 @@ int vcom_init();
 ssize_t vcom_writeBlock(const void *buf, size_t len);
 
 /**
+ * Return number of bytes in receive buffer.
+ * Added by KD0OSS 2025
+ */
+ssize_t vcom_bytesReady();
+
+/**
 * Read a block of data, nonblocking function.
 * \param buffer buffer where read data will be stored.
 * \param size buffer size.
