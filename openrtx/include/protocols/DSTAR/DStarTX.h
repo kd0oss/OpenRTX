@@ -38,6 +38,8 @@ public:
 
   void setTXDelay(uint8_t delay);
 
+  void setTXLevel(uint8_t level);
+
   uint8_t getSpace() const;
 
   char    m_header[38];
@@ -47,6 +49,7 @@ private:
   arm_fir_interpolate_instance_q15 m_modFilter;
   q15_t                            m_modState[20U];    // blockSize + phaseLength - 1, 8 + 9 - 1 plus some spare
   uint8_t                          m_poBuffer[600U];
+  uint8_t                          m_txLevel;
   uint16_t                         m_poLen;
   uint16_t                         m_poPtr;
   uint16_t                         m_txDelay;          // In bytes

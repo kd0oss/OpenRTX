@@ -78,8 +78,4 @@ enum Mod17Flags
 /* Device supports M17 mode */
 #define CONFIG_M17
 
-// Added by KD0OSS 2025
-/* Device supports DSTAR mode */
-#define CONFIG_DSTAR
-
 #endif

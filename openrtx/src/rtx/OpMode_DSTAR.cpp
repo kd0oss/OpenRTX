@@ -26,18 +26,14 @@
 #include <interfaces/radio.h>
 #include <OpMode_DSTAR.hpp>
 #include <cstdint>
-#include <ambe_audio_codec.h>
 #include <errno.h>
 #include <rtx.h>
 #include <state.h>
 #include <settings.h>
-#include <drivers/USART3_MOD17.h> // for debugging
+//#include <drivers/USART3_MOD17.h> // for debugging
 #include <drivers/usb_vcom.h>
 #include <DSTAR/RingBuffer.h>
-
-#ifdef PLATFORM_DSTAR
-//#include <interfaces/platform.h>
-#endif
+#include <dstar_audio_codec.h>
 
 #ifdef PLATFORM_MOD17
 #include <calibInfo_Mod17.h>
@@ -51,8 +47,12 @@ CRingBuffer<uint8_t>  packetBuffer(900);
 
 extern bool host_found;
 
-OpMode_DSTAR::OpMode_DSTAR() : startRx(false), startTx(false), dataValid(false),
-                           invertTxPhase(false), invertRxPhase(false)
+OpMode_DSTAR::OpMode_DSTAR():
+startRx(false),
+startTx(false),
+dataValid(false),
+invertTxPhase(false),
+invertRxPhase(false)
 {
 }
 
@@ -93,7 +93,7 @@ void OpMode_DSTAR::update(rtxStatus_t *const status, const bool newCfg)
 {
     (void) newCfg;
 
-    if (!host_found) // Check if DSTAR host has connected
+    while (!host_found) // Check if host has connected
     {
       	uint8_t buf[2];
        	uint8_t count = vcom_readBlock((uint8_t*)buf, 2);
@@ -102,14 +102,15 @@ void OpMode_DSTAR::update(rtxStatus_t *const status, const bool newCfg)
        		if (buf[0] == 0x61 && buf[1] == 0x03)
        			host_found = true;
        	}
+       	sleepFor(0, 100);
     }
 
 #if defined(PLATFORM_MOD17)
 //
 // Get phase inversion settings from calibration.
 //
-    invertTxPhase = (mod17CalData.dstar_bb_tx_invert == 1) ? true : false;
-    invertRxPhase = (mod17CalData.dstar_bb_rx_invert == 1) ? true : false;
+    invertTxPhase = !(mod17CalData.bb_tx_invert == 1) ? true : false;
+    invertRxPhase = !(mod17CalData.bb_rx_invert == 1) ? true : false;
 #endif
 
     // Main FSM logic
@@ -222,16 +223,15 @@ void OpMode_DSTAR::rxState(rtxStatus_t *const status)
         	if(host_found)
         	{
         		vcom_writeBlock((uint8_t*)buf, 15);
-
-        		dstar_io.getMyCall(status->DSTAR_src);
-        		dstar_io.getUrCall(status->DSTAR_dst);
-        		dstar_io.getSuffix(status->DSTAR_sufx);
-        		dstar_io.getRpt1Call(status->DSTAR_rpt1);
-        		dstar_io.getRpt2Call(status->DSTAR_rpt2);
-        		dstar_io.getText(status->DSTAR_message);
-        		status->lsfOk = true;
         	}
         }
+		dstar_io.getMyCall(status->DSTAR_src);
+		dstar_io.getUrCall(status->DSTAR_dst);
+		dstar_io.getSuffix(status->DSTAR_sufx);
+		dstar_io.getRpt1Call(status->DSTAR_rpt1);
+		dstar_io.getRpt2Call(status->DSTAR_rpt2);
+		dstar_io.getText(status->DSTAR_message);
+		status->lsfOk = true;
     }
 
     if(platform_getPttStatus())
@@ -288,27 +288,24 @@ void OpMode_DSTAR::txState(rtxStatus_t *const status)
         dstar_io.slowSpeedDataEncode(NULL, NULL, 10); // initialize sync data
     }
 
-	while(vcom_bytesReady() < 15) // wait for packet data from host
+	if(vcom_bytesReady() >= 15) // wait for packet data from host
 	{
-		sleepFor(0, 1);
+		uint8_t ambe[12];
+		uint8_t buf[11];
+		vcom_readBlock(buf, 1);
+		if(buf[0] == 0x61) // check for correct header byte
+		{
+			vcom_readBlock(buf, 14);
+			for(size_t i = 5; i < 14; i++)
+			{
+				ambe[i-5] = buf[i];
+			}
+			dstar_io.slowSpeedDataEncode(state.settings.dstar_message, ambe+9, 1);
+			dstar_io.setTxData(ambe, 12);
+			dstar_io.process_tx();
+			dstar_io.update_tx(invertTxPhase);
+		}
 	}
-    uint8_t ambe[12];
-	uint8_t buf[15];
-    uint8_t byte_count = vcom_readBlock(buf, 15);
-//    if(byte_count == 15 && buf[0] == 0x61 && buf[3] == 0x01)
- //   {
-    	for(size_t i = 6; i < 15; i++)
-    	{
-    		ambe[i-6] = buf[i];
-    	}
-        dstar_io.slowSpeedDataEncode(state.settings.dstar_message, ambe+9, 1);
-        dstar_io.setTxData(ambe, 12);
-//    }
- //   else
- //       usart3_mod17_writeBlock((void*)"X", 1);
-
-    dstar_io.process_tx();
-    dstar_io.update_tx(invertTxPhase);
 
     if(platform_getPttStatus() == false)
     {

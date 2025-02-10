@@ -15,6 +15,8 @@
  *                                                                         *
  *   You should have received a copy of the GNU General Public License     *
  *   along with this program; if not, see <http://www.gnu.org/licenses/>   *
+ *                                                                         *
+ *   (2025) Modified by KD0OSS for new modes on Module17                   *
  ***************************************************************************/
 
 #ifndef UI_MOD17_H
@@ -63,8 +65,13 @@ enum uiScreen
     SETTINGS_DISPLAY,
     SETTINGS_GPS,
     SETTINGS_M17,
+#if defined(CONFIG_DSTAR)
     SETTINGS_DSTAR,
-//    SETTINGS_MODULEDSTAR,
+#endif
+#if defined(CONFIG_P25)
+	SETTINGS_P25,
+#endif
+	SETTINGS_FM,
     SETTINGS_MODULE17,
     SETTINGS_RESET2DEFAULTS,
     LOW_BAT
@@ -100,22 +107,39 @@ enum settingsItems
     ,S_GPS
 #endif
     ,S_M17
+	,S_FM
+#ifdef CONFIG_DSTAR
     ,S_DSTAR
+#endif
+#if defined CONFIG_P25
+	,S_P25
+#endif
     ,S_MOD17
-//    ,S_MODDSTAR
     ,S_RESET2DEFAULTS
 };
 
 enum modeItems
 {
-    M17,
-    DSTAR
+     M17
+	,FM
+#ifdef CONFIG_DSTAR
+    ,DSTAR
+#endif
+#ifdef CONFIG_P25
+	,P25
+#endif
 };
 
 enum modeConfItems
 {
-    M_M17,
-    M_DSTAR
+     M_M17
+	,M_FM
+#ifdef CONFIG_DSTAR
+    ,M_DSTAR
+#endif
+#ifdef CONFIG_P25
+	,P_25
+#endif
 };
 
 enum backupRestoreItems
@@ -138,13 +162,31 @@ enum settingsGPSItems
 };
 #endif
 
+enum fmItems
+{
+   M_FMRXLEVEL = 0,
+   M_FMTXLEVEL,
+   M_CTCSSRX,
+   M_CTCSSTX,
+   M_CTCSSTX_LEV,
+   M_CTCSSRX_THRSHHI,
+   M_CTCSSRX_THRSHLO,
+   M_NOISESQ,
+   M_NOISESQ_THRSHHI,
+   M_NOISESQ_THRSHLO
+//   M_COSINVERT,
+//   M_ACCESSMODE,
+};
+
 enum m17Items
 {
     M_CALLSIGN = 0,
+	M_METATEXT,
     M_CAN,
     M_CAN_RX
 };
 
+#ifdef CONFIG_DSTAR
 enum dstarItems
 {
     M_MyCall = 0,
@@ -152,8 +194,22 @@ enum dstarItems
     M_Suffix,
 	M_Rpt1Call,
 	M_Rpt2Call,
-	M_Message
+	M_Message,
+	M_DSTARRXLEVEL,
+	M_DSTARTXLEVEL
 };
+#endif
+
+#ifdef CONFIG_P25
+enum p25Items
+{
+	M_SRCID = 0,
+	M_DSTID,
+	M_NAC,
+	M_P25RXLEVEL,
+	M_P25TXLEVEL
+};
+#endif
 
 enum module17Items
 {
@@ -162,12 +218,8 @@ enum module17Items
     D_PTTOUTLEVEL,
     D_TXINVERT,
     D_RXINVERT,
-    D_DSTARTXINVERT,
-    D_DSTARRXINVERT,
     D_TXWIPER,
     D_RXWIPER,
-    D_DSTARTXWIPER,
-    D_DSTARRXWIPER
 };
 
 /**
@@ -212,7 +264,7 @@ typedef struct layout_t
     symbolSize_t line5_symbol_font;
     fontSize_t bottom_font;
     fontSize_t input_font;
-    fontSize_t dstar_message_font;
+    fontSize_t message_font;
     fontSize_t menu_font;
     fontSize_t mode_font_big;
     fontSize_t mode_font_small;
@@ -229,12 +281,19 @@ typedef struct ui_state_t
     uint8_t menu_selected;
     // If true we can change a menu entry value with UP/DOWN
     bool edit_mode;
+#if defined(CONFIG_DSTAR)
     bool edit_mycall;
     bool edit_urcall;
     bool edit_suffix;
     bool edit_rpt1call;
     bool edit_rpt2call;
+#endif
     bool edit_message;
+#if defined(CONFIG_P25)
+    bool edit_srcid;
+    bool edit_dstid;
+    bool edit_nac;
+#endif
     // Variables used for VFO input
     uint8_t input_number;
     uint8_t input_position;
@@ -251,7 +310,7 @@ typedef struct ui_state_t
     char new_time_buf[9];
 #endif
     char new_callsign[10];
-    char new_message[21];
+    char new_message[53];
     // Which state to return to when we exit menu
     uint8_t last_main_state;
 }
@@ -267,7 +326,13 @@ extern const char *display_items[];
 extern const char *settings_gps_items[];
 extern const char *m17_items[];
 extern const char *module17_items[];
+#if defined(CONFIG_DSTAR)
 extern const char *dstar_items[];
+#endif
+extern const char *fm_items[];
+#if defined(CONFIG_P25)
+extern const char *p25_items[];
+#endif
 extern const char *backup_restore_items[];
 extern const char *info_items[];
 extern const char *authors[];
@@ -276,12 +341,19 @@ extern uint8_t digital_mode;
 extern const uint8_t menu_num;
 extern const uint8_t settings_num;
 extern const uint8_t mode_num;
+extern const uint8_t mode_sel_num;
 extern const uint8_t display_num;
 extern const uint8_t settings_gps_num;
 extern const uint8_t backup_restore_num;
+extern const uint8_t fm_num;
 extern const uint8_t m17_num;
 extern const uint8_t module17_num;
+#if defined(CONFIG_DSTAR)
 extern const uint8_t dstar_num;
+#endif
+#if defined(CONFIG_P25)
+extern const uint8_t p25_num;
+#endif
 extern const uint8_t info_num;
 extern const uint8_t author_num;
 extern const color_t color_black;

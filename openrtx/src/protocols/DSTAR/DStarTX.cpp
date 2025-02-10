@@ -24,9 +24,6 @@
 #include <DSTAR/RingBuffer.h>
 #include <drivers/USART3_MOD17.h>
 #include <interfaces/platform.h>
-#define MODE_DSTAR
-#if defined(MODE_DSTAR)
-
 #include <DSTAR/DStarTX.h>
 
 #include <DSTAR/DStarDefines.h>
@@ -449,9 +446,8 @@ void CDStarTX::writeByte(uint8_t c)
     usleep(5000);
   }
 
-  q15_t txLevel = 16384;
   for (uint16_t i = 0U; i < 40; i++) {
-    q31_t res1 = outBuffer[i] * txLevel;
+    q31_t res1 = outBuffer[i] * (m_txLevel * 128);
     q15_t res2 = q15_t(__SSAT((res1 >> 15), 16));
     uint16_t res3 = uint16_t((res2 * 14) + DC_OFFSET);
 
@@ -467,10 +463,13 @@ void CDStarTX::setTXDelay(uint8_t delay)
     m_txDelay = 600U;
 }
 
+void CDStarTX::setTXLevel(uint8_t level)
+{
+	m_txLevel = level;
+}
+
 uint8_t CDStarTX::getSpace() const
 {
   return m_buffer.getSpace() / (DSTAR_DATA_LENGTH_BYTES + 1U);
 }
-
-#endif
 

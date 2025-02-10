@@ -15,6 +15,8 @@
  *                                                                         *
  *   You should have received a copy of the GNU General Public License     *
  *   along with this program; if not, see <http://www.gnu.org/licenses/>   *
+ *                                                                         *
+ *   (2025) Modified by KD0OSS for new modes on Module17                   *
  ***************************************************************************/
 
 #ifndef UI_DEFAULT_H
@@ -52,7 +54,6 @@ enum uiScreen
     MENU_CONTACTS,
     MENU_GPS,
     MENU_SETTINGS,
-//    MENU_MODE,
     MENU_BACKUP_RESTORE,
     MENU_BACKUP,
     MENU_RESTORE,
@@ -64,7 +65,6 @@ enum uiScreen
     SETTINGS_GPS,
     SETTINGS_RADIO,
     SETTINGS_M17,
-//    SETTINGS_DSTAR,
     SETTINGS_ACCESSIBILITY,
     SETTINGS_RESET2DEFAULTS,
     LOW_BAT
@@ -104,7 +104,6 @@ enum settingsItems
     S_RADIO,
 #ifdef CONFIG_M17
     S_M17,
- //   S_DSTAR,
 #endif
     S_ACCESSIBILITY,
     S_RESET2DEFAULTS,
@@ -112,8 +111,14 @@ enum settingsItems
 
 enum modeItems
 {
-    M17,
-    DSTAR
+    M17
+	,FM
+#if defined(CONFIG_P25)
+	,P25
+#endif
+#if defined(CONFIG_DSTAR)
+    ,DSTAR
+#endif
 };
 
 enum backupRestoreItems
@@ -159,6 +164,7 @@ enum settingsRadioItems
 enum settingsM17Items
 {
     M17_CALLSIGN = 0,
+	M17_METATEXT,
     M17_CAN,
     M17_CAN_RX
 };
@@ -204,6 +210,7 @@ typedef struct layout_t
     symbolSize_t line4_symbol_size;
     fontSize_t bottom_font;
     fontSize_t input_font;
+    fontSize_t message_font;
     fontSize_t menu_font;
 } layout_t;
 
@@ -218,6 +225,7 @@ typedef struct ui_state_t
     uint8_t menu_selected;
     // If true we can change a menu entry value with UP/DOWN
     bool edit_mode;
+    bool edit_message;
     bool input_locked;
     // Variables used for VFO input
     uint8_t input_number;
@@ -235,6 +243,7 @@ typedef struct ui_state_t
     char new_time_buf[9];
 #endif
     char new_callsign[10];
+    char new_message[53];
     freq_t new_offset;
     // Which state to return to when we exit menu
     uint8_t last_main_state;

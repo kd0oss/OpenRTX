@@ -45,6 +45,8 @@ public:
      */
     virtual ~OpMode() { }
 
+    virtual void reset() { }
+
     /**
      * Enable the operating mode.
      *

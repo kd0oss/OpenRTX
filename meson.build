@@ -426,13 +426,7 @@ dm1801_def += openrtx_def + mk22fn512_def
 ## Module 17
 ##
 mod17_src = ['platform/targets/Module17/platform.c',
-             'openrtx/src/core/ambe_audio_codec.cpp',
              'openrtx/src/core/arm_math.c',
-             'openrtx/src/protocols/DSTAR/DStarRX.cpp',
-             'openrtx/src/protocols/DSTAR/DStarTX.cpp',
-             'openrtx/src/protocols/DSTAR/Utils.cpp',
-             'openrtx/src/protocols/DSTAR/DStar_IO.cpp',
-             'openrtx/src/rtx/OpMode_DSTAR.cpp',
              'platform/drivers/display/display_Mod17.c',
              'platform/drivers/display/SH110x_Mod17.c',
              'platform/drivers/display/SSD1309_Mod17.c',
@@ -442,14 +436,73 @@ mod17_src = ['platform/targets/Module17/platform.c',
              'platform/mcu/STM32F4xx/drivers/USART3_MOD17.cpp',
              'platform/drivers/baseband/radio_Mod17.cpp',
              'platform/drivers/audio/audio_Mod17.c',
+             'openrtx/src/protocols/DSTAR/Utils.cpp',
              'platform/drivers/audio/MAX9814_Mod17.cpp',
              'platform/drivers/baseband/MCP4551.c']
 
-mod17_inc = ['platform/targets/Module17']
-mod17_def = {'PLATFORM_MOD17': ''}
+dstar_src = ['openrtx/src/core/dstar_audio_codec.cpp',
+             'openrtx/src/protocols/DSTAR/DStarRX.cpp',
+             'openrtx/src/protocols/DSTAR/DStarTX.cpp',
+             'openrtx/src/protocols/DSTAR/DStar_IO.cpp',
+             'openrtx/src/rtx/OpMode_DSTAR.cpp']
 
-mod17_src += openrtx_src + stm32f405_src + ui_src_module17
-mod17_inc += openrtx_inc + stm32f405_inc
+p25_src =     ['openrtx/src/protocols/P25/P25RX.cpp',
+               'openrtx/src/core/imbe_audio_codec.cpp',
+               'openrtx/src/protocols/P25/P25TX.cpp',
+               'openrtx/src/protocols/P25/P25_IO.cpp',
+               'openrtx/src/protocols/P25/AMBEFEC.cpp',
+               'openrtx/src/protocols/P25/RS241213.cpp',
+               'openrtx/src/protocols/P25/P25Utils.cpp',
+               'openrtx/src/protocols/P25/P25NID.cpp',
+               'openrtx/src/protocols/P25/P25LowSpeedData.cpp',
+               'openrtx/src/protocols/P25/P25Data.cpp',
+               'openrtx/src/protocols/P25/P25_Audio.cpp',
+               'openrtx/src/protocols/P25/Hamming.cpp',
+               'openrtx/src/protocols/P25/Golay24128.cpp',
+               'openrtx/src/rtx/OpMode_P25.cpp',
+               'openrtx/src/protocols/P25/BCH.cpp']
+
+imbe_vocoder_src =['openrtx/src/imbe_vocoder/aux_sub.cc',
+                   'openrtx/src/imbe_vocoder/basicop2.cc',
+                   'openrtx/src/imbe_vocoder/ch_decode.cc',
+                   'openrtx/src/imbe_vocoder/ch_encode.cc',
+                   'openrtx/src/imbe_vocoder/dc_rmv.cc',
+                   'openrtx/src/imbe_vocoder/decode.cc',
+                   'openrtx/src/imbe_vocoder/dsp_sub.cc',
+                   'openrtx/src/imbe_vocoder/encode.cc',
+                   'openrtx/src/imbe_vocoder/imbe_vocoder_impl.cc',
+                   'openrtx/src/imbe_vocoder/imbe_vocoder.cc',
+                   'openrtx/src/imbe_vocoder/math_sub.cc',
+                   'openrtx/src/imbe_vocoder/pe_lpf.cc',
+                   'openrtx/src/imbe_vocoder/pitch_est.cc',
+                   'openrtx/src/imbe_vocoder/pitch_ref.cc',
+                   'openrtx/src/imbe_vocoder/qnt_sub.cc',
+                   'openrtx/src/imbe_vocoder/rand_gen.cc',
+                   'openrtx/src/imbe_vocoder/sa_decode.cc',
+                   'openrtx/src/imbe_vocoder/sa_encode.cc',
+                   'openrtx/src/imbe_vocoder/sa_enh.cc',
+                   'openrtx/src/imbe_vocoder/tbls.cc',
+                   'openrtx/src/imbe_vocoder/uv_synt.cc',
+                   'openrtx/src/imbe_vocoder/v_synt.cc',
+                   'openrtx/src/imbe_vocoder/v_uv_det.cc']
+
+fm_src  =         ['openrtx/src/rtx/OpMode_FM.cpp',
+                   'openrtx/src/protocols/FM/arm_sin_q31.c',
+                   'openrtx/src/protocols/FM/arm_const_structs.c',
+                   'openrtx/src/protocols/FM/arm_common_tables.c',
+                   'openrtx/src/core/fm_audio_module17.cpp',
+                   'openrtx/src/protocols/FM/FM.cpp',
+                   'openrtx/src/protocols/FM/FMCTCSSRX.cpp',
+                   'openrtx/src/protocols/FM/FMCTCSSTX.cpp',
+                   'openrtx/src/protocols/FM/FMNoiseSquelch.cpp']
+
+mod17_inc = ['platform/targets/Module17']
+fm_inc = ['openrtx/include/protocols/FM']
+imbe_vocoder_inc = ['openrtx/src/imbe_vocoder']
+mod17_def = {'PLATFORM_MOD17': '', 'CONFIG_P25': '', 'USE_DYNAMIC_ALLOC': ''}
+
+mod17_src += openrtx_src + stm32f405_src + ui_src_module17 + p25_src + fm_src + imbe_vocoder_src
+mod17_inc += openrtx_inc + stm32f405_inc + fm_inc + imbe_vocoder_inc
 mod17_def += openrtx_def + stm32f405_def
 
 ##

@@ -63,6 +63,7 @@ public:
   void terminate();
   void setMode();
   void start();
+  void reset();
   void process();
   void setDStarInt(bool on);
   void startBasebandSampling();
@@ -108,7 +109,7 @@ private:
   uint32_t    m_count;
   uint32_t    m_ledCount;
   bool        m_ledValue;
-  q15_t       m_rxLevel;
+  uint8_t     m_rxLevel;
 
   volatile uint32_t m_watchdog;
 

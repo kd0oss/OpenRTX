@@ -151,6 +151,7 @@ void IRQstackOverflowCheck()
 
 void IRQsystemReboot()
 {
+	while(1) {} // *********************** comment out when done debugging
     NVIC_SystemReset();
 }
 

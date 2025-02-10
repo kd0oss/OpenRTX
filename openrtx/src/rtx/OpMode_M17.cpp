@@ -16,6 +16,8 @@
  *                                                                         *
  *   You should have received a copy of the GNU General Public License     *
  *   along with this program; if not, see <http://www.gnu.org/licenses/>   *
+ *                                                                         *
+ *   (2025) Modified by KD0OSS for new modes on Module17                   *
  ***************************************************************************/
 
 #include <interfaces/platform.h>
@@ -23,10 +25,14 @@
 #include <interfaces/audio.h>
 #include <interfaces/radio.h>
 #include <M17/M17Callsign.hpp>
+#include <core/state.h>
 #include <OpMode_M17.hpp>
 #include <audio_codec.h>
 #include <errno.h>
+#include <stdlib.h>
+#include <math.h>
 #include <rtx.h>
+#include <drivers/USART3_MOD17.h> // for debugging
 
 #ifdef PLATFORM_MOD17
 #include <calibInfo_Mod17.h>
@@ -199,6 +205,7 @@ void OpMode_M17::rxState(rtxStatus_t *const status)
             if(status->lsfOk)
             {
                 dataValid = true;
+                frameCnt++;
 
                 // Retrieve stream source and destination data
                 std::string dst = lsf.getDestination();
@@ -226,6 +233,48 @@ void OpMode_M17::rxState(rtxStatus_t *const status)
                     strncpy(status->M17_refl, exCall2.c_str(), 10);
 
                     extendedCall = true;
+                    if(frameCnt == 6)
+                    	frameCnt = 0;
+
+                    // no metatext present
+        			memset(status->M17_Meta_Text, 0, 53);
+                }
+                // Check if metatext is present
+                else if((streamType.fields.encType    == M17_ENCRYPTION_NONE) &&
+                		(streamType.fields.encSubType == M17_META_TEXT) &&
+						lsf.valid() && frameCnt == 6)
+                {
+                	frameCnt = 0;
+                    meta_t& meta = lsf.metadata();
+            		uint8_t blk_len = (meta.raw_data[0] & 0xf0) >> 4;
+            		uint8_t blk_id = (meta.raw_data[0] & 0x0f);
+            		if(blk_id == 1)
+            		{  // On first block reset everything
+            			memset(status->M17_Meta_Text, 0, 53);
+            			memset(textBuffer, 0, 53);
+            			textOffset = 0;
+            			blk_id_tot = 0;
+            			textStarted = true;
+            		}
+            		// check if first valid metatext block is found
+            		if(textStarted)
+            		{
+            			// Check for valid block id
+            			if(blk_id <= 0x0f)
+            			{
+            				blk_id_tot += blk_id;
+            				memcpy(textBuffer+textOffset, meta.raw_data+1, 13);
+            				textOffset += 13;
+            				// Check for completed text message
+            				if((blk_len == blk_id_tot) || textOffset == 52)
+            				{
+            					memcpy(status->M17_Meta_Text, textBuffer, textOffset);
+            					textOffset = 0;
+            					blk_id_tot = 0;
+            					textStarted = false;
+            				}
+            			}
+            		}
                 }
 
                 // Set source and destination fields.
@@ -285,6 +334,8 @@ void OpMode_M17::rxState(rtxStatus_t *const status)
         status->lsfOk = false;
         dataValid     = false;
         extendedCall  = false;
+        textStarted   = false;
+        memset(textBuffer, 0, 52);
         status->M17_link[0] = '\0';
         status->M17_refl[0] = '\0';
 
@@ -301,18 +352,27 @@ void OpMode_M17::txState(rtxStatus_t *const status)
     {
         startTx = false;
 
+        // reset metatext so nothing left over from previous contact
+		memset(status->M17_Meta_Text, 0, 53);
+
         std::string src(status->source_address);
         std::string dst(status->destination_address);
-        M17LinkSetupFrame lsf;
 
         lsf.clear();
         lsf.setSource(src);
         if(!dst.empty()) lsf.setDestination(dst);
 
         streamType_t type;
-        type.fields.dataMode = M17_DATAMODE_STREAM;     // Stream
-        type.fields.dataType = M17_DATATYPE_VOICE;      // Voice data
-        type.fields.CAN      = status->can;             // Channel access number
+        type.fields.dataMode   = M17_DATAMODE_STREAM;     // Stream
+        type.fields.dataType   = M17_DATATYPE_VOICE;      // Voice data
+        type.fields.CAN        = status->can;             // Channel access number
+        if(strlen(state.settings.M17_meta_text) > 0)      // have text to send
+        {
+            type.fields.encType    = M17_ENCRYPTION_NONE; // No encryption
+            type.fields.encSubType = M17_META_TEXT;       // Meta text
+        }
+        else
+        	last_text_blk = 0xff;                         // no text to send
 
         lsf.setType(type);
         lsf.updateCrc();
@@ -330,6 +390,44 @@ void OpMode_M17::txState(rtxStatus_t *const status)
         modulator.sendFrame(m17Frame);
     }
 
+    // 0xff indicates no text to send
+    if(last_text_blk != 0xff) // send meta text
+    {
+    	if (lsfFragCount == 6)
+    	{
+    		lsfFragCount = 0;
+
+    		uint8_t buf[14];
+    		memset(buf, 32, 14); // set to all spaces
+    		// this should return number of meta block needed
+    		uint8_t msglen = ceilf((float)strlen(state.settings.M17_meta_text) / 13.0f);
+    		// set control byte upper nibble for number of text blocks
+    		// 0001 = 1 blk. 0011 = 2 blks, 0111 = 3 blks, 1111 = 4 blks
+    		buf[0] = (0x0f >> (4 - msglen)) << 4;
+
+    		// check if less than 13 characters remain
+    		uint8_t len = (uint8_t)(strlen(state.settings.M17_meta_text) - (last_text_blk * 13));
+    		// if over 13 then limit to 13
+    		if(len > 13)
+    			len = 13;
+    		memcpy(buf+1, state.settings.M17_meta_text+(last_text_blk * 13), len);
+
+    		// set control byte lower nibble to block id
+    		// 0001 = blk1, 0010 = blk2, 0100 = blk3, 1000 = blk4
+    		buf[0] += (1 << last_text_blk++);
+    		lsf.setMetaText(buf);
+    		encoder.encodeLsf(lsf, m17Frame);
+
+    		// if all blocks sent then reset
+    		if(last_text_blk == msglen)
+    		{
+    			last_text_blk = 0;
+    		}
+    	}
+    	else
+    		lsfFragCount++;
+    }
+
     payload_t dataFrame;
     bool      lastFrame = false;
 
@@ -341,6 +439,10 @@ void OpMode_M17::txState(rtxStatus_t *const status)
     {
         lastFrame = true;
         startRx   = true;
+        if(strlen(state.settings.M17_meta_text) > 0) //do we have text to send
+            last_text_blk = 0;
+        else
+        	last_text_blk = 0xff;
         status->opStatus = OFF;
     }
 

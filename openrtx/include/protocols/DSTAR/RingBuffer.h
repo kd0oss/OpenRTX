@@ -19,6 +19,7 @@
 
 #if !defined(RINGBUFFER_H)
 #define  RINGBUFFER_H
+#include "stdint.h"
 
 template <typename TDATATYPE>
 class CRingBuffer {

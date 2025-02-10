@@ -273,6 +273,12 @@ m_fecOutput(),
 m_samples(),
 m_samplesPtr(0U)
 {
+	memset(m_myCall, 0, 9);
+	memset(m_urCall, 0, 9);
+	memset(m_rpt1Call, 0, 9);
+	memset(m_rpt2Call, 0, 9);
+	memset(m_suffix, 0, 5);
+	memset(m_text, 0, 21);
 }
 
 void CDStarRX::reset()

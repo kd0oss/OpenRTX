@@ -16,10 +16,13 @@
  *                                                                         *
  *   You should have received a copy of the GNU General Public License     *
  *   along with this program; if not, see <http://www.gnu.org/licenses/>   *
+ *                                                                         *
+ *   (2025) Modified by KD0OSS for new modes on Module17                   *
  ***************************************************************************/
 
 #include <stdio.h>
 #include <stdint.h>
+#include <stdlib.h>
 #include <ui/ui_mod17.h>
 #include <rtx.h>
 #include <interfaces/platform.h>
@@ -57,9 +60,15 @@ extern void _ui_drawSettingsTimeDate();
 extern void _ui_drawSettingsTimeDateSet(ui_state_t* ui_state);
 #endif
 extern void _ui_drawSettingsDisplay(ui_state_t* ui_state);
+extern void _ui_drawSettingsFM(ui_state_t* ui_state);
 extern void _ui_drawSettingsM17(ui_state_t* ui_state);
 extern void _ui_drawSettingsModule17(ui_state_t* ui_state);
+#if defined(CONFIG_DSTAR)
 extern void _ui_drawSettingsDSTAR(ui_state_t* ui_state);
+#endif
+#if defined(CONFIG_P25)
+extern void _ui_drawSettingsP25(ui_state_t* ui_state);
+#endif
 extern void _ui_drawSettingsReset2Defaults(ui_state_t* ui_state);
 extern bool _ui_drawMacroMenu(ui_state_t* ui_state);
 
@@ -85,9 +94,14 @@ const char *settings_items[] =
     "GPS",
 #endif
     "M17",
+	"FM",
+#ifdef CONFIG_DSTAR
     "DSTAR",
+#endif
+#ifdef CONFIG_P25
+    "P25",
+#endif
     "Module 17",
-//    "Module DSTAR",
     "Default Settings"
 };
 
@@ -98,16 +112,29 @@ const char *display_items[] =
 
 const char *mode_items[] =
 {
-    "Current mode:",
+    "Current Mode:"
+};
+
+const char *mode_sel_items[] =
+{
+	 "M17"
+	,"FM"
+#ifdef CONFIG_DSTAR
+	,"DSTAR"
+#endif
+#ifdef CONFIG_P25
+	,"P25"
+#endif
 };
 
 const char *m17_items[] =
 {
     "Callsign",
+	"Message",
     "CAN",
     "CAN RX Check"
 };
-
+#if defined(CONFIG_DSTAR)
 const char *dstar_items[] =
 {
     "My Call",
@@ -115,8 +142,34 @@ const char *dstar_items[] =
     "Suffix",
 	"Rp1 Call",
 	"Rp2 Call",
-	"Mesg"
+	"Mesg",
+	"RX Level",
+	"TX Level"
 };
+#endif
+const char *fm_items[] =
+{
+	"RX Level",
+	"TX Level",
+	"CTCSSRX",
+	"CTCSSTX",
+	"CTCSSTX LVL",
+	"CTCSSRX HI",
+	"CTCSSRX LO",
+	"Noise SQ",
+	"Noise SQ HI",
+	"Noise SQ LO"
+};
+#if defined(CONFIG_P25)
+const char *p25_items[] =
+{
+    "DMR Id",
+    "Dst Id",
+	"NAC",
+	"RX Level",
+	"TX Level"
+};
+#endif
 
 const char *module17_items[] =
 {
@@ -125,12 +178,8 @@ const char *module17_items[] =
     "PTT Out",
     "TX Phase",
     "RX Phase",
-    "D* TX Phase",
-    "D* RX Phase",
     "TX Softpot",
-    "RX Softpot",
-    "D* TX Softpot",
-    "D* RX Softpot"
+    "RX Softpot"
 };
 
 #ifdef CONFIG_GPS
@@ -158,22 +207,31 @@ const char *authors[] =
     "Federico IU2NUO",
     "Mathis DB9MAT",
     "Morgan ON4MOD",
-    "Marco DM4RCO"
+    "Marco DM4RCO",
+	"Rick KD0OSS"
 };
 
 static const char symbols_callsign[] = "_ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890/-.";
+static const char symbols_id[] = "1234567890";
 
 // Calculate number of menu entries
 const uint8_t menu_num = sizeof(menu_items)/sizeof(menu_items[0]);
 const uint8_t mode_num = sizeof(mode_items)/sizeof(mode_items[0]);
+const uint8_t mode_sel_num = sizeof(mode_sel_items)/sizeof(mode_sel_items[0]);
 const uint8_t settings_num = sizeof(settings_items)/sizeof(settings_items[0]);
 const uint8_t display_num = sizeof(display_items)/sizeof(display_items[0]);
 #ifdef CONFIG_GPS
 const uint8_t settings_gps_num = sizeof(settings_gps_items)/sizeof(settings_gps_items[0]);
 #endif
+const uint8_t fm_num = sizeof(fm_items)/sizeof(fm_items[0]);
 const uint8_t m17_num = sizeof(m17_items)/sizeof(m17_items[0]);
 const uint8_t module17_num = sizeof(module17_items)/sizeof(module17_items[0]);
+#if defined(CONFIG_DSTAR)
 const uint8_t dstar_num = sizeof(dstar_items)/sizeof(dstar_items[0]);
+#endif
+#if defined(CONFIG_P25)
+const uint8_t p25_num = sizeof(p25_items)/sizeof(p25_items[0]);
+#endif
 const uint8_t info_num = sizeof(info_items)/sizeof(info_items[0]);
 const uint8_t author_num = sizeof(authors)/sizeof(authors[0]);
 
@@ -182,10 +240,11 @@ const color_t color_grey = {60, 60, 60, 255};
 const color_t color_white = {255, 255, 255, 255};
 const color_t yellow_fab413 = {250, 180, 19, 255};
 
-layout_t layout;
-state_t last_state;
+layout_t          layout;
+state_t           last_state;
 static ui_state_t ui_state;
-static bool layout_ready = false;
+static bool       layout_ready = false;
+static uint8_t    selmode = 3;
 
 uint8_t digital_mode = 0;
 
@@ -237,8 +296,8 @@ static layout_t _ui_calculateLayout()
     const fontSize_t bottom_font = FONT_SIZE_6PT;
     // TimeDate/Frequency input font
     const fontSize_t input_font = FONT_SIZE_8PT;
-    // DSTAR Message font
-    const fontSize_t dstar_message_font = FONT_SIZE_6PT;
+    // Message font
+    const fontSize_t message_font = FONT_SIZE_6PT;
     // Menu font
     const fontSize_t menu_font = FONT_SIZE_6PT;
     // Mode screen frequency font: 9 pt
@@ -291,7 +350,7 @@ static layout_t _ui_calculateLayout()
         line5_symbol_size,
         bottom_font,
         input_font,
-		dstar_message_font,
+		message_font,
         menu_font,
         mode_font_big,
         mode_font_small
@@ -374,6 +433,123 @@ static void _ui_changeBrightness(int variation)
 
     state.settings.brightness += variation;
     display_setBacklightLevel(state.settings.brightness);
+}
+
+static void _ui_changeCTCSSRX(int variation)
+{
+	int8_t code = mod17CalData.ctcssrx_freq + variation;
+
+	if(code > 40)
+		code = 0;
+
+	if (code < 0)
+		code = 40;
+
+	mod17CalData.ctcssrx_freq = code;
+}
+
+static void _ui_changeCTCSSTX(int variation)
+{
+	int8_t code = mod17CalData.ctcsstx_freq + variation;
+
+	if(code > 40)
+		code = 0;
+
+	if (code < 0)
+		code = 40;
+
+	mod17CalData.ctcsstx_freq = code;
+}
+
+static void _ui_changeBBLevel(uint8_t *level, int variation)
+{
+    uint16_t value = *level;
+    value         += variation;
+
+	if(value > 255)
+		value = 1;
+
+	if(value < 1)
+		value = 255;
+    *level = value;
+}
+
+static void _ui_changeFMNoiseSQ(int variation)
+{
+	int8_t state = mod17CalData.noisesq_on + variation;
+
+	if(state > 1)
+		state = 0;
+
+	if(state < 0)
+		state = 1;
+
+	mod17CalData.noisesq_on = state;
+}
+
+static void _ui_changeCTCSSRXThrshHi(int variation)
+{
+	int16_t lev = mod17CalData.ctcssrx_thrshhi + variation;
+
+	if(lev > 255)
+		lev = 1;
+
+	if(lev < 1)
+		lev = 255;
+
+	mod17CalData.ctcssrx_thrshhi = lev;
+}
+
+static void _ui_changeCTCSSRXThrshLo(int variation)
+{
+	int16_t lev = mod17CalData.ctcssrx_thrshlo + variation;
+
+	if(lev > 255)
+		lev = 1;
+
+	if(lev < 1)
+		lev = 255;
+
+	mod17CalData.ctcssrx_thrshlo = lev;
+}
+
+static void _ui_changeNoiseSQThrshHi(int variation)
+{
+	int16_t lev = mod17CalData.noisesq_thrshhi + variation;
+
+	if(lev > 255)
+		lev = 1;
+
+	if(lev < 1)
+		lev = 255;
+
+	mod17CalData.noisesq_thrshhi = lev;
+}
+
+static void _ui_changeNoiseSQThrshLo(int variation)
+{
+	int16_t lev = mod17CalData.noisesq_thrshlo + variation;
+
+	if(lev > 255)
+		lev = 1;
+
+	if(lev < 1)
+		lev = 255;
+
+	mod17CalData.noisesq_thrshlo = lev;
+}
+
+static void _ui_changeCTCSSTXLevel(int variation)
+{
+	int16_t lev = mod17CalData.ctcsstx_level + variation;
+
+	if(lev > 255)
+		lev = 1;
+
+	if(lev < 1)
+		lev = 255;
+
+	mod17CalData.ctcsstx_level = lev;
 }
 
 static void _ui_changeCAN(int variation)
@@ -464,6 +640,7 @@ static void _ui_menuBack(uint8_t prev_state)
     {
     	ui_state.edit_mode = false;
     }
+#if defined(CONFIG_DSTAR)
     else if(ui_state.edit_mycall)
     {
     	ui_state.edit_mycall = false;
@@ -488,6 +665,21 @@ static void _ui_menuBack(uint8_t prev_state)
     {
     	ui_state.edit_message = false;
     }
+#endif
+#if defined(CONFIG_P25)
+    else if(ui_state.edit_srcid)
+    {
+    	ui_state.edit_srcid = false;
+    }
+    else if(ui_state.edit_dstid)
+    {
+    	ui_state.edit_dstid = false;
+    }
+    else if(ui_state.edit_nac)
+    {
+    	ui_state.edit_nac = false;
+    }
+#endif
     else
     {
     	// Return to previous menu
@@ -541,6 +733,41 @@ static void _ui_textInputArrows(char *buf, uint8_t max_len, kbd_msg_t msg)
     buf[ui_state.input_position] = symbols_callsign[ui_state.input_set];
 }
 
+static void _ui_numberInputArrows(char *buf, uint8_t max_len, kbd_msg_t msg)
+{
+    if(ui_state.input_position >= max_len)
+        return;
+
+    uint8_t num_symbols = 0;
+    num_symbols = strlen(symbols_id);
+
+    if (msg.keys & KEY_RIGHT)
+    {
+        if (ui_state.input_position < (max_len - 1))
+        {
+            ui_state.input_position = ui_state.input_position + 1;
+            ui_state.input_set = 0;
+        }
+    }
+    else if (msg.keys & KEY_LEFT)
+    {
+        if (ui_state.input_position > 0)
+        {
+            buf[ui_state.input_position] = '\0';
+            ui_state.input_position = ui_state.input_position - 1;
+        }
+
+        // get index of current selected number in symbol table
+        ui_state.input_set = strcspn(symbols_id, &buf[ui_state.input_position]);
+    }
+    else if (msg.keys & KEY_UP)
+        ui_state.input_set = (ui_state.input_set + 1) % num_symbols;
+    else if (msg.keys & KEY_DOWN)
+        ui_state.input_set = ui_state.input_set==0 ? num_symbols-1 : ui_state.input_set-1;
+
+    buf[ui_state.input_position] = symbols_id[ui_state.input_set];
+}
+
 static void _ui_textInputConfirm(char *buf)
 {
     buf[ui_state.input_position + 1] = '\0';
@@ -555,7 +782,6 @@ void ui_updateFSM(bool *sync_rtx)
 {
     // Check for events
     if(evQueue_wrPos == evQueue_rdPos) return;
-  //  usart1_writeBlock((void*)"FSM update\n", 11);
 
     // Pop an event from the queue
     uint8_t newTail = (evQueue_rdPos + 1) % MAX_NUM_EVENTS;
@@ -653,9 +879,19 @@ void ui_updateFSM(bool *sync_rtx)
                         case S_M17:
                             state.ui_screen = SETTINGS_M17;
                             break;
+                        case S_FM:
+                            state.ui_screen = SETTINGS_FM;
+                            break;
+#ifdef CONFIG_DSTAR
                         case S_DSTAR:
                             state.ui_screen = SETTINGS_DSTAR;
                             break;
+#endif
+#ifdef CONFIG_P25
+                        case S_P25:
+                            state.ui_screen = SETTINGS_P25;
+                            break;
+#endif
                         case S_MOD17:
                             state.ui_screen = SETTINGS_MODULE17;
                             break;
@@ -701,19 +937,32 @@ void ui_updateFSM(bool *sync_rtx)
                 }
                 if(msg.keys & KEY_RIGHT)
                 {
-                    if (digital_mode < 1)
+                    if (digital_mode < mode_sel_num - 1)
                         digital_mode += 1;
                 }
                 if (msg.keys & KEY_LEFT || msg.keys & KEY_RIGHT)
                 {
                     if (digital_mode == 0)
-                        state.channel.mode = OPMODE_M17;
+                        selmode = OPMODE_M17;
                     else
-                        state.channel.mode = OPMODE_DSTAR;
-                    *sync_rtx = true;
+                    	if (digital_mode == 1)
+                    		selmode = OPMODE_FM;
+#ifdef CONFIG_DSTAR
+                    else
+                        if (digital_mode == 2)
+                            selmode = OPMODE_DSTAR;
+#endif
+#ifdef CONFIG_P25
+                        else
+                            selmode = OPMODE_P25;
+#endif
                 }
                 if(msg.keys & KEY_ESC)
+                {
+                	state.channel.mode = selmode;
+                    *sync_rtx = true;
                     _ui_menuBack(MENU_TOP);
+                }
                 break;
 
             case SETTINGS_DISPLAY:
@@ -750,6 +999,98 @@ void ui_updateFSM(bool *sync_rtx)
                     }
                 break;
 
+                // FM Settings
+            case SETTINGS_FM:
+                // handle CTCSS setting
+                if(msg.keys & KEY_LEFT)
+                {
+                	switch(ui_state.menu_selected)
+                	{
+                	case M_FMRXLEVEL:
+                		_ui_changeBBLevel(&mod17CalData.fm_rx_level, -1);
+                		break;
+                	case M_FMTXLEVEL:
+                		_ui_changeBBLevel(&mod17CalData.fm_tx_level, -1);
+                		break;
+                	case M_CTCSSRX:
+                		_ui_changeCTCSSRX(-1);
+                		break;
+                	case M_CTCSSTX:
+                		_ui_changeCTCSSTX(-1);
+                		break;
+                	case M_CTCSSTX_LEV:
+                		_ui_changeCTCSSTXLevel(-1);
+                		break;
+                	case M_CTCSSRX_THRSHHI:
+                		_ui_changeCTCSSRXThrshHi(-1);
+                		break;
+                	case M_CTCSSRX_THRSHLO:
+                		_ui_changeCTCSSRXThrshLo(-1);
+                		break;
+                	case M_NOISESQ:
+                		_ui_changeFMNoiseSQ(-1);
+                		break;
+                	case M_NOISESQ_THRSHHI:
+                		_ui_changeNoiseSQThrshHi(-1);
+                		break;
+                	case M_NOISESQ_THRSHLO:
+                		_ui_changeNoiseSQThrshLo(-1);
+                		break;
+                	default:
+                		state.ui_screen = SETTINGS_FM;
+                    }
+                    *sync_rtx = true;
+                }
+                else if(msg.keys & KEY_RIGHT)
+                {
+                    switch(ui_state.menu_selected)
+                    {
+                    case M_FMRXLEVEL:
+                    	_ui_changeBBLevel(&mod17CalData.fm_rx_level, +1);
+                    	break;
+                    case M_FMTXLEVEL:
+                    	_ui_changeBBLevel(&mod17CalData.fm_tx_level, +1);
+                    	break;
+                    case M_CTCSSRX:
+                    	_ui_changeCTCSSRX(+1);
+                    	break;
+                    case M_CTCSSTX:
+                    	_ui_changeCTCSSTX(+1);
+                    	break;
+                    case M_CTCSSTX_LEV:
+                    	_ui_changeCTCSSTXLevel(+1);
+                    	break;
+                    case M_CTCSSRX_THRSHHI:
+                    	_ui_changeCTCSSRXThrshHi(+1);
+                    	break;
+                    case M_CTCSSRX_THRSHLO:
+                    	_ui_changeCTCSSRXThrshLo(+1);
+                    	break;
+                    case M_NOISESQ:
+                    	_ui_changeFMNoiseSQ(+1);
+                    	break;
+                    case M_NOISESQ_THRSHHI:
+                    	_ui_changeNoiseSQThrshHi(+1);
+                    	break;
+                    case M_NOISESQ_THRSHLO:
+                    	_ui_changeNoiseSQThrshLo(+1);
+                    	break;
+                    default:
+                    	state.ui_screen = SETTINGS_FM;
+                    }
+                    *sync_rtx = true;
+                }
+                else if(msg.keys & KEY_UP || msg.keys & KNOB_LEFT)
+                    _ui_menuUp(fm_num);
+                else if(msg.keys & KEY_DOWN || msg.keys & KNOB_RIGHT)
+                    _ui_menuDown(fm_num);
+                else if(msg.keys & KEY_ESC)
+                {
+                    nvm_writeSettings(&state.settings);
+                    _ui_menuBack(MENU_SETTINGS);
+                }
+            	break;
+
             // M17 Settings
             case SETTINGS_M17:
 
@@ -766,6 +1107,21 @@ void ui_updateFSM(bool *sync_rtx)
                         ui_state.edit_mode = false;
                     else
                         _ui_textInputArrows(ui_state.new_callsign, 9, msg);
+                }
+                else
+                if(ui_state.edit_message)
+                {
+                    if(msg.keys & KEY_ENTER)
+                    {
+                        _ui_textInputConfirm(ui_state.new_message);
+                        // Save selected message and disable input mode
+                        strncpy(state.settings.M17_meta_text, ui_state.new_message, 52);
+                        ui_state.edit_message = false;
+                    }
+                    else if(msg.keys & KEY_ESC)
+                        ui_state.edit_message = false;
+                    else
+                        _ui_textInputArrows(ui_state.new_message, 52, msg);
                 }
                 else
                 {
@@ -800,16 +1156,21 @@ void ui_updateFSM(bool *sync_rtx)
                     }
                     else if(msg.keys & KEY_ENTER)
                     {
-                        switch(ui_state.menu_selected)
-                        {
-                            // Enable callsign input
-                            case M_CALLSIGN:
-                                ui_state.edit_mode = true;
-                                _ui_textInputReset(ui_state.new_callsign);
-                                break;
-                            default:
-                                state.ui_screen = SETTINGS_M17;
-                        }
+                    	switch(ui_state.menu_selected)
+                    	{
+                    	    // Enable callsign input
+                    	    case M_CALLSIGN:
+                    		    ui_state.edit_mode = true;
+                    		    _ui_textInputReset(ui_state.new_callsign);
+                    		    break;
+                    		// Enable message input
+                    	    case M_METATEXT:
+                    		    ui_state.edit_message = true;
+                    		    _ui_textInputReset(ui_state.new_message);
+                    		    break;
+                    	    default:
+                    		    state.ui_screen = SETTINGS_M17;
+                    	}
                     }
                     else if(msg.keys & KEY_UP || msg.keys & KNOB_LEFT)
                         _ui_menuUp(m17_num);
@@ -823,6 +1184,7 @@ void ui_updateFSM(bool *sync_rtx)
                     }
                 }
                 break;
+
             case SETTINGS_RESET2DEFAULTS:
                 if(! ui_state.edit_mode)
                 {
@@ -844,17 +1206,37 @@ void ui_updateFSM(bool *sync_rtx)
                         ui_state.edit_mode = false;
 
                         // Reset calibration values
-                        mod17CalData.tx_wiper     = 0x080;
-                        mod17CalData.rx_wiper     = 0x080;
-                        mod17CalData.bb_tx_invert = 0;
-                        mod17CalData.bb_rx_invert = 0;
-                        mod17CalData.mic_gain     = 0;
+                        mod17CalData.ctcssrx_freq    = 0;
+                        mod17CalData.ctcsstx_freq    = 0;
+                        mod17CalData.ctcssrx_thrshhi = 60;
+                        mod17CalData.ctcssrx_thrshlo = 30;
+                        mod17CalData.ctcsstx_level   = 30;
+                        mod17CalData.maxdev          = 90;
+                        mod17CalData.noisesq_on      = 0;
+                        mod17CalData.noisesq_thrshhi = 60;
+                        mod17CalData.noisesq_thrshlo = 30;
+                        mod17CalData.fm_rx_level     = 76;
+                        mod17CalData.fm_tx_level     = 100;
 
-                        mod17CalData.dstar_tx_wiper     = 0x080;
-                        mod17CalData.dstar_rx_wiper     = 0x080;
-                        mod17CalData.dstar_bb_tx_invert = 0;
-                        mod17CalData.dstar_bb_rx_invert = 0;
-
+                        mod17CalData.tx_wiper        = 0x080;
+                        mod17CalData.rx_wiper        = 0x080;
+                        mod17CalData.bb_tx_invert    = 0;
+                        mod17CalData.bb_rx_invert    = 0;
+                        mod17CalData.mic_gain        = 0;
+#if defined(CONFIG_P25)
+                        mod17CalData.p25_rx_level    = 50;
+                        mod17CalData.p25_tx_level    = 50;
+#endif
+#if defined(CONFIG_DSTAR)
+                        ui_state.edit_message = false;
+                        ui_state.edit_mycall = false;
+                        ui_state.edit_urcall = false;
+                        ui_state.edit_rpt1call = false;
+                        ui_state.edit_rpt2call = false;
+                        ui_state.edit_suffix = false;
+                        mod17CalData.dstar_tx_level  = 50;
+                        mod17CalData.dstar_rx_level  = 50;
+#endif
                         state_resetSettingsAndVfo();
                         nvm_writeSettings(&state.settings);
                         _ui_menuBack(MENU_SETTINGS);
@@ -866,6 +1248,114 @@ void ui_updateFSM(bool *sync_rtx)
                     }
                 }
                 break;
+#if defined(CONFIG_P25)
+            case SETTINGS_P25:
+                if(ui_state.edit_srcid)
+                {
+                    if(msg.keys & KEY_ENTER)
+                    {
+                        _ui_textInputConfirm(ui_state.new_callsign);
+                        // Save selected callsign and disable input mode
+                        state.settings.p25_srcId = atoi(ui_state.new_callsign);
+                        ui_state.edit_srcid = false;
+                    }
+                    else if(msg.keys & KEY_ESC)
+                        ui_state.edit_srcid = false;
+                    else
+                        _ui_numberInputArrows(ui_state.new_callsign, 7, msg);
+                }
+                else if(ui_state.edit_dstid)
+                {
+                    if(msg.keys & KEY_ENTER)
+                    {
+                        _ui_textInputConfirm(ui_state.new_callsign);
+                        // Save selected callsign and disable input mode
+                        state.settings.p25_dstId = atoi(ui_state.new_callsign);
+                        ui_state.edit_dstid = false;
+                    }
+                    else if(msg.keys & KEY_ESC)
+                        ui_state.edit_dstid = false;
+                    else
+                        _ui_numberInputArrows(ui_state.new_callsign, 7, msg);
+                }
+                else if(ui_state.edit_nac)
+                {
+                    if(msg.keys & KEY_ENTER)
+                    {
+                        _ui_textInputConfirm(ui_state.new_callsign);
+                        // Save selected callsign and disable input mode
+                        state.settings.p25_nac = atoi(ui_state.new_callsign);
+                        ui_state.edit_nac = false;
+                    }
+                    else if(msg.keys & KEY_ESC)
+                        ui_state.edit_nac = false;
+                    else
+                        _ui_numberInputArrows(ui_state.new_callsign, 4, msg);
+                }
+                else
+                {
+                    if(msg.keys & KEY_LEFT)
+                    {
+                    	switch(ui_state.menu_selected)
+                    	{
+                    	case M_P25RXLEVEL:
+                        	_ui_changeBBLevel(&mod17CalData.p25_rx_level, -1);
+                    		break;
+                    	case M_P25TXLEVEL:
+                        	_ui_changeBBLevel(&mod17CalData.p25_tx_level, -1);
+                    		break;
+                    	}
+                        *sync_rtx = true;
+                   }
+                    if(msg.keys & KEY_RIGHT)
+                    {
+                    	switch(ui_state.menu_selected)
+                    	{
+                    	case M_P25RXLEVEL:
+                        	_ui_changeBBLevel(&mod17CalData.p25_rx_level, +1);
+                    		break;
+                    	case M_P25TXLEVEL:
+                        	_ui_changeBBLevel(&mod17CalData.p25_tx_level, +1);
+                    		break;
+                    	}
+                        *sync_rtx = true;
+                    }
+               	    if(msg.keys & KEY_ENTER)
+                	{
+                		switch(ui_state.menu_selected)
+                		{
+                		// Enable SrcId input
+                		case M_SRCID:
+                			ui_state.edit_srcid = true;
+                			_ui_textInputReset(ui_state.new_callsign);
+                			break;
+                			// Enable DstId input
+                		case M_DSTID:
+                			ui_state.edit_dstid = true;
+                			_ui_textInputReset(ui_state.new_callsign);
+                			break;
+                		case M_NAC:
+                			ui_state.edit_nac = true;
+                			_ui_textInputReset(ui_state.new_callsign);
+                			break;
+                		default:
+                			state.ui_screen = SETTINGS_M17;
+                		}
+                	}
+                	else if(msg.keys & KEY_UP || msg.keys & KNOB_LEFT)
+                		_ui_menuUp(p25_num);
+                	else if(msg.keys & KEY_DOWN || msg.keys & KNOB_RIGHT)
+                		_ui_menuDown(p25_num);
+                	else if(msg.keys & KEY_ESC)
+                	{
+                		*sync_rtx = true;
+                		nvm_writeSettings(&state.settings);
+                		_ui_menuBack(MENU_SETTINGS);
+                	}
+                }
+             	break;
+#endif
+#if defined(CONFIG_DSTAR)
             case SETTINGS_DSTAR:
                 if(ui_state.edit_mycall)
                 {
@@ -928,7 +1418,7 @@ void ui_updateFSM(bool *sync_rtx)
                     if(msg.keys & KEY_ENTER)
                     {
                         _ui_textInputConfirm(ui_state.new_callsign);
-                        // Save selected callsign and disable input mode
+                        // Save selected suffix and disable input mode
                         strncpy(state.settings.dstar_suffix, ui_state.new_callsign, 5);
                         ui_state.edit_suffix = false;
                     }
@@ -942,7 +1432,7 @@ void ui_updateFSM(bool *sync_rtx)
                     if(msg.keys & KEY_ENTER)
                     {
                         _ui_textInputConfirm(ui_state.new_message);
-                        // Save selected callsign and disable input mode
+                        // Save selected message and disable input mode
                         strncpy(state.settings.dstar_message, ui_state.new_message, 21);
                         ui_state.edit_message = false;
                     }
@@ -953,6 +1443,32 @@ void ui_updateFSM(bool *sync_rtx)
                 }
                 else
                 {
+                    if(msg.keys & KEY_LEFT)
+                    {
+                    	switch(ui_state.menu_selected)
+                    	{
+                    	case M_DSTARRXLEVEL:
+                        	_ui_changeBBLevel(&mod17CalData.dstar_rx_level, -1);
+                    		break;
+                    	case M_DSTARTXLEVEL:
+                        	_ui_changeBBLevel(&mod17CalData.dstar_tx_level, -1);
+                    		break;
+                    	}
+                        *sync_rtx = true;
+                   }
+                    if(msg.keys & KEY_RIGHT)
+                    {
+                    	switch(ui_state.menu_selected)
+                    	{
+                    	case M_DSTARRXLEVEL:
+                        	_ui_changeBBLevel(&mod17CalData.dstar_rx_level, +1);
+                    		break;
+                    	case M_DSTARTXLEVEL:
+                        	_ui_changeBBLevel(&mod17CalData.dstar_tx_level, +1);
+                    		break;
+                    	}
+                        *sync_rtx = true;
+                    }
                 	if(msg.keys & KEY_ENTER)
                 	{
                 		switch(ui_state.menu_selected)
@@ -1003,6 +1519,7 @@ void ui_updateFSM(bool *sync_rtx)
                 	}
                 }
                 break;
+#endif
             // Module17 Settings
             case SETTINGS_MODULE17:
                 if(msg.keys & KEY_LEFT)
@@ -1015,24 +1532,12 @@ void ui_updateFSM(bool *sync_rtx)
                     case D_RXWIPER:
                         _ui_changeWiper(&mod17CalData.rx_wiper, -1);
                         break;
-                    case D_DSTARTXWIPER:
-                        _ui_changeWiper(&mod17CalData.dstar_tx_wiper, -1);
-                        break;
-                    case D_DSTARRXWIPER:
-                        _ui_changeWiper(&mod17CalData.dstar_rx_wiper, -1);
-                        break;
                     case D_TXINVERT:
                         mod17CalData.bb_tx_invert -= 1;
                         break;
                     case D_RXINVERT:
                         mod17CalData.bb_rx_invert -= 1;
                         break;
-                    case D_DSTARTXINVERT:
-                        mod17CalData.dstar_bb_tx_invert -= 1;
-                        break;
-                    case D_DSTARRXINVERT:
-                    	mod17CalData.dstar_bb_rx_invert -= 1;
-                    	break;
                     case D_MICGAIN:
                     	_ui_changeMicGain(-1);
                     	break;
@@ -1045,6 +1550,7 @@ void ui_updateFSM(bool *sync_rtx)
                     default:
                     	state.ui_screen = SETTINGS_MODULE17;
                     }
+            		*sync_rtx = true;
                 }
                 else if(msg.keys & KEY_RIGHT)
                 {
@@ -1056,24 +1562,12 @@ void ui_updateFSM(bool *sync_rtx)
                     case D_RXWIPER:
                         _ui_changeWiper(&mod17CalData.rx_wiper, +1);
                         break;
-                    case D_DSTARTXWIPER:
-                        _ui_changeWiper(&mod17CalData.dstar_tx_wiper, +1);
-                        break;
-                    case D_DSTARRXWIPER:
-                        _ui_changeWiper(&mod17CalData.dstar_rx_wiper, +1);
-                        break;
                     case D_TXINVERT:
                         mod17CalData.bb_tx_invert += 1;
                         break;
                     case D_RXINVERT:
                         mod17CalData.bb_rx_invert += 1;
                         break;
-                    case D_DSTARTXINVERT:
-                        mod17CalData.dstar_bb_tx_invert += 1;
-                        break;
-                    case D_DSTARRXINVERT:
-                    	mod17CalData.dstar_bb_rx_invert += 1;
-                    	break;
                     case D_MICGAIN:
                     	_ui_changeMicGain(+1);
                     	break;
@@ -1086,6 +1580,7 @@ void ui_updateFSM(bool *sync_rtx)
                     default:
                     	state.ui_screen = SETTINGS_MODULE17;
                     }
+            		*sync_rtx = true;
                 }
                 else if(msg.keys & KEY_UP || msg.keys & KNOB_LEFT)
                     _ui_menuUp(module17_num);
@@ -1141,13 +1636,25 @@ bool ui_updateGUI()
         	_ui_drawSettingsDisplay(&ui_state);
         	break;
         	// M17 settings screen
+        case SETTINGS_FM:
+        	_ui_drawSettingsFM(&ui_state);
+        	break;
+        	// M17 settings screen
         case SETTINGS_M17:
         	_ui_drawSettingsM17(&ui_state);
         	break;
-        	// M17 settings screen
+#if defined(CONFIG_DSTAR)
+        	// DSTAR settings screen
         case SETTINGS_DSTAR:
         	_ui_drawSettingsDSTAR(&ui_state);
         	break;
+#endif
+#if defined(CONFIG_P25)
+        	// P25 settings screen
+        case SETTINGS_P25:
+        	_ui_drawSettingsP25(&ui_state);
+        	break;
+#endif
         	// Module 17 settings screen
         case SETTINGS_MODULE17:
             _ui_drawSettingsModule17(&ui_state);

@@ -16,6 +16,8 @@
  *                                                                         *
  *   You should have received a copy of the GNU General Public License     *
  *   along with this program; if not, see <http://www.gnu.org/licenses/>   *
+ *                                                                         *
+ *   (2025) Modified by KD0OSS for new modes on Module17                   *
  ***************************************************************************/
 
 #ifndef RTX_H
@@ -66,6 +68,8 @@ typedef struct
     char     M17_src[10];              /**  M17 LSF source               */
     char     M17_link[10];             /**  M17 LSF traffic originator   */
     char     M17_refl[10];             /**  M17 LSF reflector module     */
+    char     M17_Meta_Text[53];        /**< M17 Meta Text                */
+#if defined(CONFIG_DSTAR)
     char     DSTAR_dst[9];             /**  DSTAR LSF destination        */
     char     DSTAR_src[9];             /**  DSTAR LSF source             */
     char     DSTAR_link[10];           /**  DSTAR LSF traffic originator */
@@ -74,6 +78,11 @@ typedef struct
     char     DSTAR_sufx[5];            /**  DSTAR LSF Suffix             */
     char     DSTAR_refl[10];           /**  DSTAR LSF reflector module   */
     char     DSTAR_message[22];        /**  DSTAR LSF slowspeed data     */
+#endif
+#if defined(CONFIG_P25)
+    uint32_t P25_SrcId;                /**< P25 Source ID (DMR ID)       */
+    uint32_t P25_DstId;                /**< P25 Destination ID (DMR ID/TG)*/
+#endif
 }
 rtxStatus_t;
 
@@ -95,7 +104,8 @@ enum opmode
     OPMODE_FM    = 1,        /**< Analog FM          */
     OPMODE_DMR   = 2,        /**< DMR                */
     OPMODE_M17   = 3,        /**< M17                */
-    OPMODE_DSTAR = 4         /**< DSTAR              */
+    OPMODE_DSTAR = 4,        /**< DSTAR              */
+    OPMODE_P25   = 5         /**< P25                */
 };
 
 /**

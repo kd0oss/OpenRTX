@@ -16,6 +16,8 @@
  *                                                                         *
  *   You should have received a copy of the GNU General Public License     *
  *   along with this program; if not, see <http://www.gnu.org/licenses/>   *
+ *                                                                         *
+ *   (2025) Modified by KD0OSS for new modes on Module17                   *
  ***************************************************************************/
 
 #include <hwconfig.h>
@@ -102,10 +104,18 @@ void *ui_threadFunc(void *arg)
             rtx_cfg.txDisable = state.channel.rx_only || state.txDisable;
 
             // Copy new M17 CAN, source and destination addresses
-            rtx_cfg.can = state.settings.m17_can;
-            rtx_cfg.canRxEn = state.settings.m17_can_rx;
+            rtx_cfg.can                        = state.settings.m17_can;
+            rtx_cfg.canRxEn                    = state.settings.m17_can_rx;
             strncpy(rtx_cfg.source_address,      state.settings.callsign, 10);
             strncpy(rtx_cfg.destination_address, state.settings.m17_dest, 10);
+#if defined(CONFIG_DSTAR)
+            strncpy(rtx_cfg.DSTAR_src,           state.settings.dstar_mycall, 8);
+            strncpy(rtx_cfg.DSTAR_dst,           state.settings.dstar_urcall, 8);
+#endif
+#if defined(CONFIG_P25)
+            rtx_cfg.P25_SrcId =                  state.settings.p25_srcId;
+            rtx_cfg.P25_DstId =                  state.settings.p25_dstId;
+#endif
 
             pthread_mutex_unlock(&rtx_mutex);
 

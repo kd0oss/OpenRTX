@@ -66,6 +66,9 @@ extern const struct Adc adc1;
 /* Device supports M17 mode */
 #define CONFIG_M17
 
+/* Device supports displaying Meta Text */
+#define CONFIG_METATEXT
+
 #ifdef __cplusplus
 }
 #endif

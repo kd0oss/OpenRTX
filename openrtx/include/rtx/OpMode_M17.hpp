@@ -16,6 +16,8 @@
  *                                                                         *
  *   You should have received a copy of the GNU General Public License     *
  *   along with this program; if not, see <http://www.gnu.org/licenses/>   *
+ *                                                                         *
+ *   (2025) Modified by KD0OSS for new modes on Module17                   *
  ***************************************************************************/
 
 #ifndef OPMODE_M17_H
@@ -135,19 +137,28 @@ private:
     bool compareCallsigns(const std::string& localCs, const std::string& incomingCs);
 
 
-    bool startRx;                      ///< Flag for RX management.
-    bool startTx;                      ///< Flag for TX management.
-    bool locked;                       ///< Demodulator locked on data stream.
-    bool dataValid;                    ///< Demodulated data is valid
-    bool extendedCall;                 ///< Extended callsign data received
-    bool invertTxPhase;                ///< TX signal phase inversion setting.
-    bool invertRxPhase;                ///< RX signal phase inversion setting.
-    pathId rxAudioPath;                ///< Audio path ID for RX
-    pathId txAudioPath;                ///< Audio path ID for TX
-    M17::M17Modulator    modulator;    ///< M17 modulator.
-    M17::M17Demodulator  demodulator;  ///< M17 demodulator.
-    M17::M17FrameDecoder decoder;      ///< M17 frame decoder
-    M17::M17FrameEncoder encoder;      ///< M17 frame encoder
+	uint8_t textOffset = 0;              ///< Metatext offset
+	uint8_t blk_id_tot = 0;              ///< Metatext block Id total
+	uint8_t frameCnt = 0;                ///< Transmit frame counter
+	uint8_t last_text_blk =  0;          ///< Last metatext block counter
+	uint8_t lsfFragCount = 5;            ///< LSF fragment counter
+	bool    textStarted = false;         ///< Metatext found flag
+	char    textBuffer[53];              ///< Temporary buffer for incoming metatext
+
+    bool startRx;                        ///< Flag for RX management.
+    bool startTx;                        ///< Flag for TX management.
+    bool locked;                         ///< Demodulator locked on data stream.
+    bool dataValid;                      ///< Demodulated data is valid
+    bool extendedCall;                   ///< Extended callsign data received
+    bool invertTxPhase;                  ///< TX signal phase inversion setting.
+    bool invertRxPhase;                  ///< RX signal phase inversion setting.
+    pathId rxAudioPath;                  ///< Audio path ID for RX
+    pathId txAudioPath;                  ///< Audio path ID for TX
+    M17::M17Modulator      modulator;    ///< M17 modulator.
+    M17::M17Demodulator    demodulator;  ///< M17 demodulator.
+    M17::M17FrameDecoder   decoder;      ///< M17 frame decoder
+    M17::M17FrameEncoder   encoder;      ///< M17 frame encoder
+    M17::M17LinkSetupFrame lsf;          ///< M17 link setup frame
 };
 
 #endif /* OPMODE_M17_H */
