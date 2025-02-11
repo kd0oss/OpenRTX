@@ -32,7 +32,7 @@
 #include <sys/ioctl.h>
 #include <stdint.h>
 #include <sys/stat.h>
-#include "../imbe_vocoder/imbe_vocoder_api.h"
+#include "../openrtx/src/imbe_vocoder/imbe_vocoder_api.h"
 
 //#define USE_VOCODER
 
@@ -75,6 +75,7 @@ int debugD = 0;
 int debugM = 0;
 char dongletty[50] = "";
 char mod17tty[50] = "";
+bool dongleDone = true;
 int16_t  decodeTable[256];
 imbe_vocoder vocoder;
 fd_set fds;
@@ -177,7 +178,7 @@ int openSerial(char *serial)
 
 	tty.c_oflag = 0;
 	tty.c_cc[VMIN]  = 0;
-	tty.c_cc[VTIME] = 5;
+	tty.c_cc[VTIME] = 20;
 
 	tty.c_iflag &= ~(IXON | IXOFF | IXANY | ICRNL);
 
@@ -327,6 +328,7 @@ int processSerialmod17(void)
 		else
 		{
 #if !defined(USE_VOCODER)
+			dongleDone = false;
 			len = write(serialDongleFd, buffer, respLen);
 			if (len != respLen) {
 				fprintf(stderr, "AMBE_Host: error when writing to the dongle serial port, errno=%d\n", errno);
@@ -370,23 +372,23 @@ int processSerialdongle(void)
 
 		if (len == 0)
 			delay(1UL);
-        timeout++;
-        if (timeout > 2) return 1;
+   //     timeout++;
+   //     if (timeout > 2) return 1;
 		offset += len;
 	}
 
 	respLen = buffer[1U] * 256U + buffer[2U];
 
-	timeout = 0U;
+//	timeout = 0U;
 	offset = 0U;
 	while (offset < respLen) {
 		len = read(serialDongleFd, buffer + AMBE3000_HEADER_LEN + offset, respLen - offset);
 
 		if (len == 0)
 			delay(1UL);
-		fprintf(stderr, "Len: %ld  RespL: %d  Offset: %d\n", len, respLen, offset);
-        timeout++;
-        if (timeout > 2) return 1;
+	//	fprintf(stderr, "Len: %ld  RespL: %d  Offset: %d\n", len, respLen, offset);
+   //     timeout++;
+   //     if (timeout > 2) return 1;
 
 		offset += len;
 	}
@@ -396,6 +398,7 @@ int processSerialdongle(void)
 	if (debugD)
 		dump((char*)"AMBE dongle serial data", buffer, respLen);
 
+	dongleDone = true;
 	len = write(serialMod17Fd, buffer, respLen);
 	if (len != respLen) {
 		fprintf(stderr, "AMBE_Host: error when writing to the Module17 port, errno=%d\n", errno);
@@ -534,7 +537,7 @@ int main(int argc, char **argv)
 	#endif
 
 	//	fprintf(stderr, "Here2\n");
-		if (FD_ISSET(serialMod17Fd, &fds)) {
+		if (FD_ISSET(serialMod17Fd, &fds) && dongleDone) {
 			ret = processSerialmod17();
 			if (!ret)
 				return 1;
