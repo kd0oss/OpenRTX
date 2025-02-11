@@ -71,6 +71,7 @@ typedef struct
     const char* Federico;
     const char* Fred;
     const char* Joseph;
+    const char* Rick;
     const char* allChannels;
     const char* menu;
     const char* gpsOff;
@@ -85,6 +86,7 @@ typedef struct
     const char* toRestoreFlashAnd;
     const char* openRTX;
     const char* gpsSettings;
+    const char* fmsettings;
     const char* m17settings;
     const char* callsign;
     const char* resetToDefaults;

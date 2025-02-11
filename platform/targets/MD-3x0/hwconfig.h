@@ -69,6 +69,9 @@ extern const struct Adc adc1;
 /* Device supports displaying Meta Text */
 #define CONFIG_METATEXT
 
+/* Use FM settings menu instead of macro menu */
+#define NO_FMMACROMENU
+
 #ifdef __cplusplus
 }
 #endif

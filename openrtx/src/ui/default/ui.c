@@ -113,6 +113,7 @@ extern void _ui_drawSettingsTimeDate();
 extern void _ui_drawSettingsTimeDateSet(ui_state_t* ui_state);
 #endif
 extern void _ui_drawSettingsDisplay(ui_state_t* ui_state);
+extern void _ui_drawSettingsFM(ui_state_t* ui_state);
 extern void _ui_drawSettingsM17(ui_state_t* ui_state);
 extern void _ui_drawSettingsVoicePrompts(ui_state_t* ui_state);
 extern void _ui_drawSettingsReset2Defaults(ui_state_t* ui_state);
@@ -143,6 +144,9 @@ const char *settings_items[] =
     "GPS",
 #endif
     "Radio",
+#ifdef NO_FMMACROMENU
+    "FM",
+#endif
 #ifdef CONFIG_M17
     "M17",
 #endif
@@ -175,6 +179,13 @@ const char *settings_radio_items[] =
     "Offset",
     "Direction",
     "Step",
+};
+
+const char * settings_fm_items[] =
+{
+    "CTCSSRX",
+    "CTCSSTX",
+    "Bandwidth"
 };
 
 const char * settings_m17_items[] =
@@ -267,6 +278,7 @@ const uint8_t display_num = sizeof(display_items)/sizeof(display_items[0]);
 const uint8_t settings_gps_num = sizeof(settings_gps_items)/sizeof(settings_gps_items[0]);
 #endif
 const uint8_t settings_radio_num = sizeof(settings_radio_items)/sizeof(settings_radio_items[0]);
+const uint8_t settings_fm_num = sizeof(settings_fm_items)/sizeof(settings_fm_items[0]);
 #ifdef CONFIG_M17
 const uint8_t settings_m17_num = sizeof(settings_m17_items)/sizeof(settings_m17_items[0]);
 #endif
@@ -797,6 +809,32 @@ static inline void _ui_changeM17Can(int variation)
 }
 #endif
 
+static inline void _ui_changeFMCTCSSRX(int variation)
+{
+    int8_t value = state.channel.fm.rxTone;
+    value        += variation;
+
+    if(value > 50)
+        value = 0;
+
+    if(value < 0)
+        value = 50;
+    state.channel.fm.rxTone = value;
+}
+
+static inline void _ui_changeFMCTCSSTX(int variation)
+{
+    int8_t value = state.channel.fm.txTone;
+    value       += variation;
+
+    if(value > 50)
+        value = 0;
+
+    if(value < 0)
+        value = 50;
+    state.channel.fm.txTone = value;
+}
+
 static void _ui_changeVoiceLevel(int variation)
 {
     if ((state.settings.vpLevel == vpNone && variation < 0) ||
@@ -986,8 +1024,8 @@ static void _ui_fsm_menuMacro(kbd_msg_t msg, bool *sync_rtx)
             break;
         case 5:
             // Cycle through radio modes
-            #ifdef CONFIG_M17
             if(state.channel.mode == OPMODE_FM)
+            #ifdef CONFIG_M17
                 state.channel.mode = OPMODE_M17;
             else if(state.channel.mode == OPMODE_M17)
                 state.channel.mode = OPMODE_FM;
@@ -1573,6 +1611,14 @@ void ui_updateFSM(bool *sync_rtx)
                     }
                     else if(msg.keys & KEY_HASH)
                     {
+                        // Only enter edit mode when using FM
+                        if(state.channel.mode == OPMODE_FM)
+                        {
+                            ui_state.edit_mode = true;
+                            vp_announceM17Info(NULL,  ui_state.edit_mode,
+                                               queueFlags);
+                        }
+                        else
                         #ifdef CONFIG_M17
                         // Only enter edit mode when using M17
                         if(state.channel.mode == OPMODE_M17)
@@ -2025,6 +2071,11 @@ void ui_updateFSM(bool *sync_rtx)
                         case S_RADIO:
                             state.ui_screen = SETTINGS_RADIO;
                             break;
+#ifdef NO_FMMACROMENU
+                        case S_FM:
+                            state.ui_screen = SETTINGS_FM;
+                            break;
+#endif
 #ifdef CONFIG_M17
                         case S_M17:
                             state.ui_screen = SETTINGS_M17;
@@ -2353,6 +2404,79 @@ void ui_updateFSM(bool *sync_rtx)
                 else if(msg.keys & KEY_ESC)
                     _ui_menuBack(MENU_SETTINGS);
                 break;
+#ifdef NO_FMMACROMENU
+            // FM settings
+            case SETTINGS_FM:
+                if(ui_state.edit_mode)
+                {
+                    switch (ui_state.menu_selected)
+                    {
+                        case FM_CTCSSRX:
+                            if(msg.keys & KEY_DOWN || msg.keys & KNOB_LEFT)
+                                _ui_changeFMCTCSSRX(-1);
+                            else if(msg.keys & KEY_UP || msg.keys & KNOB_RIGHT)
+                                _ui_changeFMCTCSSRX(+1);
+                            else if(msg.keys & KEY_ENTER)
+                                ui_state.edit_mode = !ui_state.edit_mode;
+                            else if(msg.keys & KEY_ESC)
+                                ui_state.edit_mode = false;
+                        break;
+
+                        case FM_CTCSSTX:
+                            if(msg.keys & KEY_DOWN || msg.keys & KNOB_LEFT)
+                                _ui_changeFMCTCSSTX(-1);
+                            else if(msg.keys & KEY_UP || msg.keys & KNOB_RIGHT)
+                                _ui_changeFMCTCSSTX(+1);
+                            else if(msg.keys & KEY_ENTER)
+                                ui_state.edit_mode = !ui_state.edit_mode;
+                            else if(msg.keys & KEY_ESC)
+                                ui_state.edit_mode = false;
+                        break;
+
+                        case FM_BW:
+                            if(msg.keys & KEY_LEFT || msg.keys & KEY_RIGHT ||
+                                (ui_state.edit_mode &&
+                                (msg.keys & KEY_DOWN || msg.keys & KNOB_LEFT ||
+                                msg.keys & KEY_UP || msg.keys & KNOB_RIGHT)))
+                            {
+                                if(state.channel.bandwidth == BW_12_5)
+                                    state.channel.bandwidth = BW_25;
+                                else
+                                    state.channel.bandwidth = BW_12_5;
+                            }
+                            else if(msg.keys & KEY_ENTER)
+                                ui_state.edit_mode = !ui_state.edit_mode;
+                        else if(msg.keys & KEY_ESC)
+                            ui_state.edit_mode = false;
+                    }
+                }
+                else
+                {
+                    if(msg.keys & KEY_ENTER)
+                    {
+                        // Enable edit mode
+                        ui_state.edit_mode = true;
+                    }
+                    else if(msg.keys & KEY_UP || msg.keys & KNOB_LEFT)
+                        _ui_menuUp(settings_fm_num);
+                    else if(msg.keys & KEY_DOWN || msg.keys & KNOB_RIGHT)
+                        _ui_menuDown(settings_fm_num);
+                    else if((msg.keys & KEY_RIGHT) && (ui_state.menu_selected == FM_CTCSSRX))
+                        _ui_changeFMCTCSSRX(+1);
+                    else if((msg.keys & KEY_LEFT)  && (ui_state.menu_selected == FM_CTCSSRX))
+                       _ui_changeFMCTCSSRX(-1);
+                    else if((msg.keys & KEY_RIGHT) && (ui_state.menu_selected == FM_CTCSSTX))
+                       _ui_changeFMCTCSSTX(+1);
+                    else if((msg.keys & KEY_LEFT)  && (ui_state.menu_selected == FM_CTCSSTX))
+                        _ui_changeFMCTCSSTX(-1);
+                    else if(msg.keys & KEY_ESC)
+                    {
+                        *sync_rtx = true;
+                        _ui_menuBack(MENU_SETTINGS);
+                    }
+                }
+                break;
+#endif
 #ifdef CONFIG_M17
             // M17 Settings
             case SETTINGS_M17:
@@ -2657,6 +2781,12 @@ bool ui_updateGUI()
         // GPS menu screen
         case MENU_GPS:
             _ui_drawMenuGPS();
+            break;
+#endif
+#ifdef NO_FMMACROMENU
+        // FM settings
+        case SETTINGS_FM:
+            _ui_drawSettingsFM(&ui_state);
             break;
 #endif
         // Settings menu screen

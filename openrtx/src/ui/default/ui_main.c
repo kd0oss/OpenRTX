@@ -132,8 +132,9 @@ void _ui_drawBankChannel()
 void _ui_drawModeInfo(ui_state_t* ui_state)
 {
     char bw_str[8] = { 0 };
+#ifndef NO_FMMACROMENU
     char encdec_str[9] = { 0 };
-
+#endif
     switch(last_state.channel.mode)
     {
         case OPMODE_FM:
@@ -144,10 +145,21 @@ void _ui_drawModeInfo(ui_state_t* ui_state)
             else if(last_state.channel.bandwidth == BW_25)
                 sniprintf(bw_str, 8, "FM");
 
+#ifdef NO_FMMACROMENU
+            if(last_state.channel.fm.rxTone == 50)
+                last_state.channel.fm.rxToneEn = false;
+            else
+                last_state.channel.fm.rxToneEn = true;
+            if(last_state.channel.fm.txTone == 50)
+                last_state.channel.fm.txToneEn = false;
+            else
+                last_state.channel.fm.txToneEn = true;
+#endif
             // Get encdec string
             bool tone_tx_enable = last_state.channel.fm.txToneEn;
             bool tone_rx_enable = last_state.channel.fm.rxToneEn;
 
+#ifndef NO_FMMACROMENU
             if (tone_tx_enable && tone_rx_enable)
                 sniprintf(encdec_str, 9, "ED");
             else if (tone_tx_enable && !tone_rx_enable)
@@ -156,14 +168,31 @@ void _ui_drawModeInfo(ui_state_t* ui_state)
                 sniprintf(encdec_str, 9, " D");
             else
                 sniprintf(encdec_str, 9, "  ");
-
+#endif
             // Print Bandwidth, Tone and encdec info
             if (tone_tx_enable || tone_rx_enable)
             {
+#ifdef NO_FMMACROMENU
+                if(last_state.channel.fm.txTone != 50)
+                {
+                    uint16_t toneTx = ctcss_tone[last_state.channel.fm.txTone];
+                    gfx_print(layout.line2_pos, layout.line2_font, TEXT_ALIGN_CENTER,
+                              color_white, "%s %d.%d E", bw_str, (toneTx / 10),
+                              (toneTx % 10));
+                }
+                if(last_state.channel.fm.rxTone != 50)
+                {
+                    uint16_t toneRx = ctcss_tone[last_state.channel.fm.rxTone];
+                    gfx_print(layout.line1_pos, layout.line2_font, TEXT_ALIGN_CENTER,
+                          color_white, "%s %d.%d D", bw_str, (toneRx / 10),
+                          (toneRx % 10));
+                }
+#else
                 uint16_t tone = ctcss_tone[last_state.channel.fm.txTone];
                 gfx_print(layout.line2_pos, layout.line2_font, TEXT_ALIGN_CENTER,
                           color_white, "%s %d.%d %s", bw_str, (tone / 10),
                           (tone % 10), encdec_str);
+#endif
             }
             else
             {

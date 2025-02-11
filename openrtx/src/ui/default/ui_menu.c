@@ -409,6 +409,54 @@ int _ui_getRadioValueName(char *buf, uint8_t max_len, uint8_t index)
     return 0;
 }
 
+int _ui_getFMEntryName(char *buf, uint8_t max_len, uint8_t index)
+{
+    if(index >= settings_fm_num) return -1;
+    snprintf(buf, max_len, "%s", settings_fm_items[index]);
+    return 0;
+}
+
+int _ui_getFMValueName(char *buf, uint8_t max_len, uint8_t index)
+{
+    if(index >= settings_fm_num)
+        return -1;
+
+    uint16_t tone;
+    switch(index)
+    {
+        case FM_CTCSSRX:
+            tone = ctcss_tone[last_state.channel.fm.rxTone];
+            last_state.channel.fm.rxToneEn = true;
+            if(last_state.channel.fm.rxTone == 50)
+            {
+                sniprintf(buf, max_len, "OFF");
+                last_state.channel.fm.rxToneEn = false;
+            }
+            else
+                sniprintf(buf, max_len, "%d.%d", (tone / 10), (tone % 10));
+            break;
+
+        case FM_CTCSSTX:
+            tone = ctcss_tone[last_state.channel.fm.txTone];
+            last_state.channel.fm.txToneEn = true;
+            if(last_state.channel.fm.txTone == 50)
+            {
+                sniprintf(buf, max_len, "OFF");
+                last_state.channel.fm.txToneEn = false;
+            }
+            else
+                sniprintf(buf, max_len, "%d.%d", (tone / 10), (tone % 10));
+            break;
+        case FM_BW:
+            if(last_state.channel.bandwidth == BW_12_5)
+                sniprintf(buf, max_len, "12.5");
+            else
+                sniprintf(buf, max_len, "25");
+        break;
+    }
+    return 0;
+}
+
 #ifdef CONFIG_M17
 int _ui_getM17EntryName(char *buf, uint8_t max_len, uint8_t index)
 {
@@ -946,6 +994,16 @@ void _ui_drawSettingsTimeDateSet(ui_state_t* ui_state)
 }
 #endif
 
+void _ui_drawSettingsFM(ui_state_t* ui_state)
+{
+    gfx_clearScreen();
+    // Print "FM Settings" on top bar
+    gfx_print(layout.top_pos, layout.top_font, TEXT_ALIGN_CENTER,
+              color_white, currentLanguage->fmsettings);
+
+    _ui_drawMenuListValue(ui_state, ui_state->menu_selected, _ui_getFMEntryName,
+                          _ui_getFMValueName);
+}
 #ifdef CONFIG_M17
 void _ui_drawSettingsM17(ui_state_t* ui_state)
 {
@@ -1111,6 +1169,7 @@ bool _ui_drawMacroMenu(ui_state_t* ui_state)
     // First row
     if (last_state.channel.mode == OPMODE_FM)
     {
+#ifndef NO_FMMACROMENU
 /*
  * If we have a keyboard installed draw all numbers, otherwise draw only the
  * currently selected number.
@@ -1132,6 +1191,14 @@ bool _ui_drawMacroMenu(ui_state_t* ui_state)
                   yellow_fab413, "2");
         gfx_print(layout.line1_pos, layout.top_font, TEXT_ALIGN_CENTER,
                   color_white,   "       T+");
+#else
+        gfx_print(layout.line1_pos, layout.top_font, TEXT_ALIGN_LEFT,
+                  yellow_fab413, "1");
+        gfx_print(layout.line1_pos, layout.top_font, TEXT_ALIGN_LEFT,
+                  color_white, "           ");
+        gfx_print(layout.line1_pos, layout.top_font, TEXT_ALIGN_CENTER,
+                  yellow_fab413, "2");
+#endif
     }
 #ifdef CONFIG_M17
     else if (last_state.channel.mode == OPMODE_M17)
@@ -1152,6 +1219,7 @@ bool _ui_drawMacroMenu(ui_state_t* ui_state)
 
     if (last_state.channel.mode == OPMODE_FM)
     {
+#ifndef NO_FMMACROMENU
         char encdec_str[9] = { 0 };
         bool tone_tx_enable = last_state.channel.fm.txToneEn;
         bool tone_rx_enable = last_state.channel.fm.rxToneEn;
@@ -1165,6 +1233,7 @@ bool _ui_drawMacroMenu(ui_state_t* ui_state)
             sniprintf(encdec_str, 9, "        ");
         gfx_print(layout.line1_pos, layout.top_font, TEXT_ALIGN_RIGHT,
                   color_white, encdec_str);
+#endif
     }
 #ifdef CONFIG_M17
     else if (last_state.channel.mode == OPMODE_M17)
@@ -1188,6 +1257,7 @@ bool _ui_drawMacroMenu(ui_state_t* ui_state)
 
     if (last_state.channel.mode == OPMODE_FM)
     {
+#ifndef NO_FMMACROMENU
         char bw_str[12] = { 0 };
         switch (last_state.channel.bandwidth)
         {
@@ -1201,6 +1271,10 @@ bool _ui_drawMacroMenu(ui_state_t* ui_state)
 
         gfx_print(pos_2, layout.top_font, TEXT_ALIGN_LEFT,
                   color_white, bw_str);
+#else
+        gfx_print(pos_2, layout.top_font, TEXT_ALIGN_LEFT,
+             color_white, "       ");
+#endif
     }
 #ifdef CONFIG_M17
     else if (last_state.channel.mode == OPMODE_M17)
