@@ -1752,67 +1752,65 @@ void ui_updateFSM(bool *sync_rtx)
                 }
                 else
                     // M17 Destination message input
-                    if(ui_state.edit_message)
-                    {
-                        {
-                            if(msg.keys & KEY_ENTER)
-                            {
-                                _ui_textInputConfirm(ui_state.new_message);
-                                // Save selected message and disable input mode
-                                strncpy(state.settings.M17_meta_text, ui_state.new_message, 52);
-                                ui_state.edit_message = false;
-                                *sync_rtx = true;
-                            }
-                            else if(msg.keys & KEY_HASH)
-                            {
-                                // Save selected message and disable input mode
-                                strncpy(state.settings.M17_meta_text, "", 1);
-                                ui_state.edit_message = false;
-                                *sync_rtx = true;
-                            }
-                            else if(msg.keys & KEY_ESC)
-                                // Discard selected message and disable input mode
-                                ui_state.edit_message = false;
-                            else if(msg.keys & KEY_F1)
-                            {
-                                if (state.settings.vpLevel > vpBeep)
-                                {
-                                    // Quick press repeat vp, long press summary.
-                                    if (msg.long_press)
-                                    {
-                                        vp_announceChannelSummary(
-                                                &state.channel,
-                                                state.channel_index,
-                                                state.bank,
-                                                vpAllInfo);
-                                    }
-                                    else
-                                    {
-                                        vp_replayLastPrompt();
-                                    }
+                	if(ui_state.edit_message)
+                	{
+                		if(msg.keys & KEY_ENTER)
+                		{
+                			_ui_textInputConfirm(ui_state.new_message);
+                			// Save selected message and disable input mode
+                			strncpy(state.settings.M17_meta_text, ui_state.new_message, 52);
+                			ui_state.edit_message = false;
+                			*sync_rtx = true;
+                		}
+                		else if(msg.keys & KEY_HASH)
+                		{
+                			// Save selected message and disable input mode
+                			strncpy(state.settings.M17_meta_text, "", 1);
+                			ui_state.edit_message = false;
+                			*sync_rtx = true;
+                		}
+                		else if(msg.keys & KEY_ESC)
+                			// Discard selected message and disable input mode
+                			ui_state.edit_message = false;
+                		else if(msg.keys & KEY_F1)
+                		{
+                			if (state.settings.vpLevel > vpBeep)
+                			{
+                				// Quick press repeat vp, long press summary.
+                				if (msg.long_press)
+                				{
+                					vp_announceChannelSummary(
+                							&state.channel,
+											state.channel_index,
+											state.bank,
+											vpAllInfo);
+                				}
+                				else
+                				{
+                					vp_replayLastPrompt();
+                				}
 
-                                    f1Handled = true;
-                                }
-                            }
-                            else if(msg.keys & KEY_UP || msg.keys & KEY_DOWN ||
-                                    msg.keys & KEY_LEFT || msg.keys & KEY_RIGHT)
-                                _ui_textInputDel(ui_state.new_message);
-                            else if(input_isCharPressed(msg))
-                                _ui_textInputKeypad(ui_state.new_message, 52, msg, true);
-                            break;
-                        }
-                    }
-                    else
-                {
-                    if(msg.keys & KEY_ENTER)
-                    {
-                        // Save current main state
-                        ui_state.last_main_state = state.ui_screen;
-                        // Open Menu
-                        state.ui_screen = MENU_TOP;
-                    }
-                    else if(msg.keys & KEY_ESC)
-                    {
+                				f1Handled = true;
+                			}
+                		}
+                		else if(msg.keys & KEY_UP || msg.keys & KEY_DOWN ||
+                				msg.keys & KEY_LEFT || msg.keys & KEY_RIGHT)
+                			_ui_textInputDel(ui_state.new_message);
+                		else if(input_isCharPressed(msg))
+                			_ui_textInputKeypad(ui_state.new_message, 52, msg, true);
+                		break;
+                	}
+                	else
+                	{
+                		if(msg.keys & KEY_ENTER)
+                		{
+                			// Save current main state
+                			ui_state.last_main_state = state.ui_screen;
+                			// Open Menu
+                			state.ui_screen = MENU_TOP;
+                		}
+                		else if(msg.keys & KEY_ESC)
+                		{
                         // Restore VFO channel
                         state.channel = state.vfo_channel;
                         // Update RTX configuration
@@ -2454,10 +2452,10 @@ void ui_updateFSM(bool *sync_rtx)
                     if(msg.keys & KEY_ENTER)
                     {
                         // Enable edit mode
+                        ui_state.edit_mode = true;
                         // If callsign input, reset text input variables
                         if(ui_state.menu_selected == M17_CALLSIGN)
                         {
-                            ui_state.edit_mode = true;
                             _ui_textInputReset(ui_state.new_callsign);
                             vp_announceBuffer(&currentLanguage->callsign,
                                             true, true, ui_state.new_callsign);
@@ -2465,8 +2463,9 @@ void ui_updateFSM(bool *sync_rtx)
                         // If message input, reset text input variables
                         if(ui_state.menu_selected == M17_METATEXT)
                         {
-                            ui_state.edit_message = true;
-                            _ui_textInputReset(ui_state.new_message);
+                        	ui_state.edit_mode = false;
+                        	ui_state.edit_message = true;
+                        	_ui_textInputReset(ui_state.new_message);
                         }
                     }
                     else if(msg.keys & KEY_UP || msg.keys & KNOB_LEFT)
