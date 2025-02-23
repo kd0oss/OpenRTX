@@ -165,6 +165,10 @@ rssi_t rtx_getRssi();
  */
 bool rtx_rxSquelchOpen();
 
+bool rtx_getSMSMessage(uint8_t mesg_num, char *sender, char *message);
+
+void rtx_delSMSMessage(uint8_t mesg_num);
+
 #ifdef __cplusplus
 }
 #endif

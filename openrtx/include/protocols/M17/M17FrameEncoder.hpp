@@ -30,6 +30,7 @@
 #include "M17ConvolutionalEncoder.hpp"
 #include "M17LinkSetupFrame.hpp"
 #include "M17StreamFrame.hpp"
+#include "M17PacketFrame.hpp"
 
 namespace M17
 {
@@ -85,6 +86,7 @@ public:
     uint16_t encodeStreamFrame(const payload_t& payload, frame_t& output,
                                const bool isLast = false);
 
+    void encodePacketFrame(const pktPayload_t& payload, frame_t& output);
     /**
      * Encode an End Of Transmission marker frame.
      *
@@ -97,7 +99,7 @@ private:
     M17ConvolutionalEncoder  encoder;           ///< Convolutional encoder.
     std::array< lich_t, 6 >  lichSegments;      ///< Encoded LSF chunks for LICH generation.
     uint8_t                  currentLich;       ///< Index of current LSF chunk.
-    uint16_t                 streamFrameNumber; ///< Current frame number.
+    uint16_t                 streamFrameNumber; ///< Current stream frame number.
 };
 
 }      // namespace M17

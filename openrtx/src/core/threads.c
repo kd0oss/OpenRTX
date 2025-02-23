@@ -30,11 +30,11 @@
 #include <interfaces/delays.h>
 #include <interfaces/radio.h>
 #include <event.h>
-#include <rtx.h>
 #include <string.h>
 #include <utils.h>
 #include <input.h>
 #include <backup.h>
+#include <rtx.h>
 #ifdef CONFIG_GPS
 #include <peripherals/gps.h>
 #include <gps.h>

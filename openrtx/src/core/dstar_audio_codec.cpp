@@ -204,6 +204,7 @@ static void *encodeFunc(void *arg)
             // Post-amplification stage
             for(size_t i = 0; i < audio.len; i++)
             {
+            	// Compand audio using A-LAW to reduce number bytes transferred
             	cRxBuffer[byte_count++] = alawEncode(audio.data[i] * micGainPost);
             }
             vcom_writeBlock(cRxBuffer, 166);
@@ -274,6 +275,7 @@ static void *decodeFunc(void *arg)
     				{
     					if(frame >= 0)
     					{
+    						// decode A-LAW companding
        						uint16_t audio = decodeTable[cRxBuffer[i]];
     						siAudioBuf[frame++] = audio & 0x00ff;
     						siAudioBuf[frame++] = (audio >> 8) & 0xff;

@@ -33,6 +33,7 @@
 #include <memory_profiling.h>
 #include <ui/ui_strings.h>
 #include <core/voicePromptUtils.h>
+#include <rtx.h>
 
 #ifdef PLATFORM_TTWRPLUS
 #include <SA8x8.h>
@@ -218,7 +219,7 @@ void _ui_drawMenuListValue(ui_state_t* ui_state, uint8_t selected,
                 // If we are in edit mode, draw a hollow rectangle
                 text_color = color_black;
                 bool full_rect = true;
-                if(ui_state->edit_mode || ui_state->edit_message)
+                if(ui_state->edit_mode || ui_state->edit_message || ui_state->edit_sms)
                 {
                     text_color = color_white;
                     full_rect = false;
@@ -231,7 +232,7 @@ void _ui_drawMenuListValue(ui_state_t* ui_state, uint8_t selected,
                 // E.g. when pressing Enter on Display Brightness etc.
                 if (editModeChanged)
                     priorSelectedMenuName[0]='\0';
-                if (!ui_state->edit_mode || editModeChanged)
+                if ((!ui_state->edit_mode && !ui_state->edit_message && !ui_state->edit_sms) || editModeChanged)
                 {// If in edit mode, only want to speak the char being entered,,
             //not repeat the entire display.
                     announceMenuItemIfNeeded(entry_buf, value_buf,
@@ -243,6 +244,27 @@ void _ui_drawMenuListValue(ui_state_t* ui_state, uint8_t selected,
             pos.y += layout.menu_h;
         }
     }
+}
+
+bool _ui_viewSubString(char *in_string, char *out_string, uint16_t start_pos, uint16_t num_chars)
+{
+	uint16_t totalLen = strlen(in_string);
+	if(start_pos >= totalLen || (num_chars + start_pos) > totalLen)
+		return false;
+
+	memset(out_string, 0, num_chars+1);
+
+    uint16_t i;
+    for(i=0;i<num_chars;i++)
+    {
+        out_string[i] = in_string[start_pos + i];
+        // replace tab, line feed and carriage return with space
+        if(out_string[i] == 0x09 || out_string[i] == 0x0a || out_string[i] == 0x0d)
+        	out_string[i] = 0x20;
+    }
+    out_string[i] = 0;
+
+    return true;
 }
 
 int _ui_getMenuTopEntryName(char *buf, uint8_t max_len, uint8_t index)
@@ -458,6 +480,13 @@ int _ui_getFMValueName(char *buf, uint8_t max_len, uint8_t index)
 }
 
 #ifdef CONFIG_M17
+int _ui_getSMSEntryName(char *buf, uint8_t max_len, uint8_t index)
+{
+    if(index >= menu_m17sms_num) return -1;
+    sniprintf(buf, max_len, "%s", menu_m17sms_items[index]);
+    return 0;
+}
+
 int _ui_getM17EntryName(char *buf, uint8_t max_len, uint8_t index)
 {
     if(index >= settings_m17_num) return -1;
@@ -490,9 +519,14 @@ int _ui_getM17ValueName(char *buf, uint8_t max_len, uint8_t index)
                 sniprintf(buf, max_len, "%s", last_state.settings.M17_meta_text);
             break;
 
+        case M17_SMS:
+        	buf[0] = 0;
+            break;
+
         case M17_CAN:
             sniprintf(buf, max_len, "%d", last_state.settings.m17_can);
             break;
+
         case M17_CAN_RX:
             sniprintf(buf, max_len, "%s", (last_state.settings.m17_can_rx) ?
                                                            currentLanguage->on :
@@ -1005,6 +1039,155 @@ void _ui_drawSettingsFM(ui_state_t* ui_state)
                           _ui_getFMValueName);
 }
 #ifdef CONFIG_M17
+void _ui_drawSMSMenu(ui_state_t* ui_state)
+{
+    gfx_clearScreen();
+    point_t top_pos = layout.top_pos;
+    point_t top_rect_pos = {0, top_pos.y - layout.menu_h + 3};
+    point_t bot_pos = layout.bottom_pos;
+    point_t bot_rect_pos = {0, bot_pos.y - layout.menu_h + 3};
+
+    if(ui_state->edit_sms)
+    {
+    	char text[41];
+    	uint16_t mesgLen = strlen(ui_state->new_message);
+
+        // Draw rectangle under selected item, compensating for text height
+        gfx_drawRect(top_rect_pos, CONFIG_SCREEN_WIDTH, layout.menu_h, color_white, true);
+
+        gfx_print(top_pos, layout.top_font, TEXT_ALIGN_CENTER, color_black, "SMS Message:");
+
+        if(mesgLen > 40)
+        	_ui_viewSubString(ui_state->new_message, text, mesgLen - 40, 40);
+        else
+        	strcpy(text, ui_state->new_message);
+
+        gfx_printLine(1, 4, layout.top_h, CONFIG_SCREEN_HEIGHT - layout.bottom_h,
+                      layout.horizontal_pad, layout.message_font,
+                      TEXT_ALIGN_CENTER, color_white, text);
+    }
+    else if(ui_state->view_sms)
+    {
+    	char title[20];
+    	char sender[10];
+    	char message[821];
+    	char text[41];
+    	uint16_t mesgLen = 0;
+    	uint16_t curPos = 0;
+    	uint16_t charsLeft = 0;
+
+		if(state.delSMSMessage)
+		{
+			rtx_delSMSMessage(state.currentSMSMessage);
+    		state.totalSMSMessages--;
+    		state.currentSMSMessage--;
+    		state.delSMSMessage = false;
+		}
+
+    	if(state.currentSMSLine < 0)
+    	{
+    		state.currentSMSMessage--;
+    		state.currentSMSLine = 0;
+    	}
+    	if(state.currentSMSMessage < 0)
+    		state.currentSMSMessage = state.totalSMSMessages - 1;
+
+    	if(rtx_getSMSMessage(state.currentSMSMessage, sender, message))
+    	{
+    		// Draw rectangle under selected item, compensating for text height
+    		gfx_drawRect(top_rect_pos, CONFIG_SCREEN_WIDTH, layout.menu_h, color_white, true);
+    		sprintf(title, "%s  M#: %d", sender, state.currentSMSMessage + 1);
+    		gfx_print(top_pos, layout.top_font, TEXT_ALIGN_CENTER, color_black, title);
+
+    		gfx_drawRect(bot_rect_pos, CONFIG_SCREEN_WIDTH, layout.menu_h, color_white, true);
+    		sprintf(title, "Scroll:");
+    		gfx_print(bot_pos, layout.top_font, TEXT_ALIGN_LEFT, color_black, title);
+
+    		sprintf(title, "%c  %c", (char)SYMBOL_UP_ARROW, (char)SYMBOL_DOWN_ARROW);
+            gfx_drawSymbols(bot_pos, layout.top_symbol_size, TEXT_ALIGN_CENTER, color_black, title);
+
+    		sprintf(title, "Del: #");
+    		gfx_print(bot_pos, layout.top_font, TEXT_ALIGN_RIGHT, color_black, title);
+
+    		mesgLen = strlen(message);
+    		curPos = 22 * state.currentSMSLine;
+    		if(curPos >= mesgLen)
+    			curPos = mesgLen;
+    		charsLeft = mesgLen - curPos;
+    		if(charsLeft > 0)
+    		{
+    			_ui_viewSubString(message, text, curPos, charsLeft < 22 ? charsLeft : 22);
+
+    			gfx_print(layout.line1_pos,  layout.message_font, TEXT_ALIGN_LEFT, color_white, text);
+
+        		mesgLen = strlen(message);
+        		curPos = 25 * (state.currentSMSLine + 1);
+        		if(curPos >= mesgLen)
+        			curPos = mesgLen;
+        		charsLeft = mesgLen - curPos;
+        		if(charsLeft > 0)
+        		{
+        			_ui_viewSubString(message, text, curPos, charsLeft < 22 ? charsLeft : 22);
+
+        			gfx_print(layout.line2_pos,  layout.message_font, TEXT_ALIGN_LEFT, color_white, text);
+        		}
+
+        		mesgLen = strlen(message);
+        		curPos = 25 * (state.currentSMSLine + 2);
+        		if(curPos >= mesgLen)
+        			curPos = mesgLen;
+        		charsLeft = mesgLen - curPos;
+        		if(charsLeft > 0)
+        		{
+        			_ui_viewSubString(message, text, curPos, charsLeft < 22 ? charsLeft : 22);
+
+        			gfx_print(layout.line3_pos,  layout.message_font, TEXT_ALIGN_LEFT, color_white, text);
+        		}
+
+        		mesgLen = strlen(message);
+        		curPos = 25 * (state.currentSMSLine + 3);
+        		if(curPos >= mesgLen)
+        			curPos = mesgLen;
+        		charsLeft = mesgLen - curPos;
+        		if(charsLeft > 0)
+        		{
+        			_ui_viewSubString(message, text, curPos, charsLeft < 22 ? charsLeft : 22);
+
+        			gfx_print(layout.line4_pos,  layout.message_font, TEXT_ALIGN_LEFT, color_white, text);
+        		}
+    		}
+    		else
+    		{
+    			state.currentSMSMessage++;
+    			if(state.currentSMSMessage >= state.totalSMSMessages)
+    				state.currentSMSMessage = 0;
+    			state.currentSMSLine = 0;
+    		}
+    	}
+    	else
+    	{
+    		ui_state->view_sms = false;
+    		gfx_print(layout.top_pos, layout.top_font, TEXT_ALIGN_CENTER,
+    				color_white, "SMS Menu");
+
+    		_ui_drawMenuList(ui_state->menu_selected, _ui_getSMSEntryName);
+    	}
+    }
+    else
+    {
+    	if(ui_state->menu_selected > menu_m17sms_num -1)
+    		ui_state->menu_selected = 0;
+
+        gfx_print(layout.top_pos, layout.top_font, TEXT_ALIGN_CENTER,
+                  color_white, "SMS Menu");
+
+        _ui_drawMenuList(ui_state->menu_selected, _ui_getSMSEntryName);
+
+		state.currentSMSMessage = 0;
+		state.currentSMSLine = 0;
+    }
+}
+
 void _ui_drawSettingsM17(ui_state_t* ui_state)
 {
     gfx_clearScreen();

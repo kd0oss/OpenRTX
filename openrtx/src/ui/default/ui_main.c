@@ -115,9 +115,32 @@ void _ui_drawMainTop(ui_state_t * ui_state)
                        layout.status_v_pad};
     gfx_drawBattery(bat_pos, bat_width, bat_height, last_state.charge);
 #endif
+#ifdef CONFIG_M17
+    // Show envelope if SMS received
+    if(state.totalSMSMessages > 0)
+    {
+    	char symbols[4];
+        if (ui_state->input_locked == true)
+        {
+    	    sprintf(symbols, "%c %c", (char)SYMBOL_LOCK, (char)SYMBOL_MAIL);
+            gfx_drawSymbols(layout.top_pos, layout.top_symbol_size, TEXT_ALIGN_LEFT,
+                       color_white, symbols);
+        }
+        else
+            gfx_drawSymbol(layout.top_pos, layout.top_symbol_size, TEXT_ALIGN_LEFT,
+                       color_white, SYMBOL_MAIL);
+    }
+    else
+    {
+        if (ui_state->input_locked == true)
+          gfx_drawSymbol(layout.top_pos, layout.top_symbol_size, TEXT_ALIGN_LEFT,
+                         color_white, SYMBOL_LOCK);
+    }
+#else
     if (ui_state->input_locked == true)
       gfx_drawSymbol(layout.top_pos, layout.top_symbol_size, TEXT_ALIGN_LEFT,
                      color_white, SYMBOL_LOCK);
+#endif
 }
 
 void _ui_drawBankChannel()

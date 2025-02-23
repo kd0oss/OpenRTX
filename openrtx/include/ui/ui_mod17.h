@@ -60,6 +60,7 @@ enum uiScreen
     MENU_RESTORE,
     MENU_INFO,
     MENU_ABOUT,
+	SETTINGS_SMS,
     SETTINGS_TIMEDATE,
     SETTINGS_TIMEDATE_SET,
     SETTINGS_DISPLAY,
@@ -178,10 +179,17 @@ enum fmItems
 //   M_ACCESSMODE,
 };
 
+enum m17smsItems
+{
+   M_SMSSEND = 0,
+   M_SMSVIEW
+};
+
 enum m17Items
 {
     M_CALLSIGN = 0,
 	M_METATEXT,
+	M_SMS,
     M_CAN,
     M_CAN_RX
 };
@@ -289,6 +297,8 @@ typedef struct ui_state_t
     bool edit_rpt2call;
 #endif
     bool edit_message;
+    bool edit_sms;
+    bool view_sms;
 #if defined(CONFIG_P25)
     bool edit_srcid;
     bool edit_dstid;
@@ -310,7 +320,8 @@ typedef struct ui_state_t
     char new_time_buf[9];
 #endif
     char new_callsign[10];
-    char new_message[53];
+    char new_message[821];
+    uint8_t currentSMSMessage;
     // Which state to return to when we exit menu
     uint8_t last_main_state;
 }
@@ -324,6 +335,7 @@ extern const char *settings_items[];
 extern const char *mode_items[];
 extern const char *display_items[];
 extern const char *settings_gps_items[];
+extern const char *m17sms_items[];
 extern const char *m17_items[];
 extern const char *module17_items[];
 #if defined(CONFIG_DSTAR)
@@ -346,6 +358,7 @@ extern const uint8_t display_num;
 extern const uint8_t settings_gps_num;
 extern const uint8_t backup_restore_num;
 extern const uint8_t fm_num;
+extern const uint8_t m17sms_num;
 extern const uint8_t m17_num;
 extern const uint8_t module17_num;
 #if defined(CONFIG_DSTAR)

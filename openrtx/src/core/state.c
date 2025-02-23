@@ -66,20 +66,26 @@ void state_init()
     /*
      * Initialise remaining fields
      */
-    #ifdef CONFIG_RTC
-    state.time = platform_getCurrentTime();
-    #endif
-    state.v_bat  = platform_getVbat();
-    state.charge = battery_getCharge(state.v_bat);
-    state.rssi   = -127.0f;
-    state.volume = platform_getVolumeLevel();
-
-    state.channel_index = 0;    // Set default channel index (it is 0-based)
-    state.bank_enabled  = false;
-    state.rtxStatus     = RTX_OFF;
-    state.emergency     = false;
-    state.txDisable     = false;
-    state.step_index    = 4; // Default frequency step 12.5kHz
+#ifdef CONFIG_RTC
+    state.time              = platform_getCurrentTime();
+#endif
+    state.v_bat             = platform_getVbat();
+    state.charge            = battery_getCharge(state.v_bat);
+    state.rssi              = -127.0f;
+    state.volume            = platform_getVolumeLevel();
+    state.channel_index     = 0;    // Set default channel index (it is 0-based)
+    state.bank_enabled      = false;
+    state.rtxStatus         = RTX_OFF;
+    state.emergency         = false;
+    state.txDisable         = false;
+    state.step_index        = 4; // Default frequency step 12.5kHz
+#ifdef CONFIG_M17
+    state.havePacketData    = false;
+    state.delSMSMessage     = false;
+    state.currentSMSMessage = 0;
+    state.currentSMSLine    = 0;
+ 	state.totalSMSMessages  = 0;
+#endif
 
     // Force brightness field to be in range 0 - 100
     if(state.settings.brightness > 100)

@@ -20,10 +20,10 @@
  *   (2025) Modified by KD0OSS for DSTAR/P25 use on Module17/OpenRTX       *
  ***************************************************************************/
 
+#include <rtx.h>
 #include <interfaces/radio.h>
 #include <hwconfig.h>
 #include <string.h>
-#include <rtx.h>
 #include <OpMode_FM.hpp>
 #include <OpMode_M17.hpp>
 #if defined(CONFIG_DSTAR)
@@ -306,4 +306,23 @@ rssi_t rtx_getRssi()
 bool rtx_rxSquelchOpen()
 {
     return currMode->rxSquelchOpen();
+}
+
+bool rtx_getSMSMessage(uint8_t mesg_num, char *sender, char *message)
+{
+	// only M17 has SMS capability
+   	if(currMode->getID() == OPMODE_M17)
+   	{
+   		return currMode->getSMSMessage(mesg_num, sender, message);
+   	}
+   	return false;
+}
+
+void rtx_delSMSMessage(uint8_t mesg_num)
+{
+	// only M17 has SMS capability
+   	if(currMode->getID() == OPMODE_M17)
+   	{
+   		currMode->delSMSMessage(mesg_num);
+   	}
 }

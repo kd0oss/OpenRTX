@@ -43,7 +43,6 @@
 
 namespace M17
 {
-
 class M17Demodulator
 {
 public:
@@ -99,6 +98,7 @@ public:
      * @return true if a demodulator is locked on an M17 stream.
      */
     bool isLocked();
+
 
 private:
 
@@ -161,11 +161,14 @@ private:
     uint32_t                       initCount;       ///< Downcounter for initialization
     uint32_t                       syncCount;       ///< Downcounter for resynchronization
     std::pair < int32_t, int32_t > outerDeviation;  ///< Deviation of outer symbols
+    std::pair < int32_t, int32_t > innerDeviation;  ///< Deviation of inner symbols
     float                          corrThreshold;   ///< Correlation threshold
     filter_state_t                 dcrState;        ///< State of the DC removal filter
 
     Correlator   < M17_SYNCWORD_SYMBOLS, SAMPLES_PER_SYMBOL > correlator;
+    Synchronizer < M17_SYNCWORD_SYMBOLS, SAMPLES_PER_SYMBOL > lsfSync   {{ +3, +3, +3, +3, -3, -3, +3, -3 }};
     Synchronizer < M17_SYNCWORD_SYMBOLS, SAMPLES_PER_SYMBOL > streamSync{{ -3, -3, -3, -3, +3, +3, -3, +3 }};
+    Synchronizer < M17_SYNCWORD_SYMBOLS, SAMPLES_PER_SYMBOL > packetSync{{ +3, -3, +3, +3, -3, -3, -3, -3 }};
     Iir          < 3 >                                        sampleFilter{sfNum, sfDen};
 };
 

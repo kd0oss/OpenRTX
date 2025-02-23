@@ -28,11 +28,12 @@
 #include <core/state.h>
 #include <OpMode_M17.hpp>
 #include <audio_codec.h>
+#include <vector>
 #include <errno.h>
 #include <stdlib.h>
 #include <math.h>
-#include <rtx.h>
 #include <drivers/USART3_MOD17.h> // for debugging
+#include <rtx.h>
 
 #ifdef PLATFORM_MOD17
 #include <calibInfo_Mod17.h>
@@ -61,11 +62,17 @@ void OpMode_M17::enable()
     codec_init();
     modulator.init();
     demodulator.init();
-    locked       = false;
-    dataValid    = false;
-    extendedCall = false;
-    startRx      = true;
-    startTx      = false;
+    smsSender.clear();
+    smsMessage.clear();
+    locked                 = false;
+    dataValid              = false;
+    extendedCall           = false;
+    startRx                = true;
+    startTx                = false;
+    smsEnabled             = true;
+    totalSMSLength         = 0;
+    state.totalSMSMessages = 0;
+    state.havePacketData   = false;
 }
 
 void OpMode_M17::disable()
@@ -80,6 +87,30 @@ void OpMode_M17::disable()
     radio_disableRtx();
     modulator.terminate();
     demodulator.terminate();
+    for(size_t i=0;i<state.totalSMSMessages;i++)
+    {
+    	free(smsSender[i]);
+    	free(smsMessage[i]);
+    }
+    smsSender.clear();
+    smsMessage.clear();
+}
+
+bool OpMode_M17::getSMSMessage(uint8_t mesg_num, char *sender, char *message)
+{
+	if(state.totalSMSMessages == 0 || mesg_num > (state.totalSMSMessages - 1))
+		return false;
+	strcpy(sender, smsSender[mesg_num]);
+	strcpy(message, smsMessage[mesg_num]);
+	return true;
+}
+
+void OpMode_M17::delSMSMessage(uint8_t mesg_num)
+{
+	free(smsSender[mesg_num]);
+	free(smsMessage[mesg_num]);
+	smsSender.erase(smsSender.begin()+mesg_num);
+	smsMessage.erase(smsMessage.begin()+mesg_num);
 }
 
 void OpMode_M17::update(rtxStatus_t *const status, const bool newCfg)
@@ -116,7 +147,11 @@ void OpMode_M17::update(rtxStatus_t *const status, const bool newCfg)
             break;
 
         case TX:
-            txState(status);
+        	// check if we have SMS packet to send
+        	if(state.havePacketData)
+        		txPacketState(status);
+        	else
+                txState(status);
             break;
 
         default:
@@ -160,6 +195,13 @@ void OpMode_M17::offState(rtxStatus_t *const status)
     }
 
     if(platform_getPttStatus() && (status->txDisable == 0))
+    {
+        startTx = true;
+        status->opStatus = TX;
+        return;
+    }
+
+    if(state.havePacketData && (status->txDisable == 0))
     {
         startTx = true;
         status->opStatus = TX;
@@ -314,6 +356,80 @@ void OpMode_M17::rxState(rtxStatus_t *const status)
                     M17StreamFrame sf = decoder.getStreamFrame();
                     codec_pushFrame(sf.payload().data(),     false);
                     codec_pushFrame(sf.payload().data() + 8, false);
+                } // check if packet SMS message and SMS receive enabled
+                else if(type == M17FrameType::PACKET && smsEnabled &&
+                	   (canMatch == true) && (callMatch == true))
+                {
+                	// grab decoded packet data
+                    M17PacketFrame pf = decoder.getPacketFrame();
+
+                    if(!smsStarted && pf.payload()[0] == 0x05)
+                    {  // check if we need to delete oldest message to make room
+                    	if(state.totalSMSMessages == 10)
+                    	{
+                    		free(smsSender[0]);
+                    		free(smsMessage[0]);
+                    		smsSender.erase(smsSender.begin());
+                    		smsMessage.erase(smsMessage.begin());
+                    		state.totalSMSMessages--;
+                    	}
+                		smsLastFrame = 0;
+                		// start new message by saving senders call
+                		char *tmp = (char*)malloc(strlen(status->M17_src)+1);
+                		if(tmp != NULL)
+                		{
+                			memset(tmp, 0, strlen(status->M17_src)+1);
+                			memcpy(tmp, status->M17_src, strlen(status->M17_src));
+                			smsSender.push_back(tmp);
+                			smsStarted = true;
+                			totalSMSLength = 0;
+                			memset(smsBuffer, 0, 821);
+                		}
+                    }
+
+                    uint8_t rx_fn   = (pf.payload()[25] >> 2) & 0x1F;
+                	uint8_t rx_last =  pf.payload()[25] >> 7;
+
+                	// store next frame of message
+                	if(smsStarted)
+                    {
+                    	if(rx_fn <= 31 && rx_fn == smsLastFrame && !rx_last)
+                    	{
+                       		totalSMSLength = strlen((const char*)smsBuffer);
+                       		if(smsLastFrame == 0)
+                    		    memcpy(&smsBuffer[totalSMSLength], &pf.payload()[1], 25);
+                       		else
+                    		    memcpy(&smsBuffer[totalSMSLength], pf.payload().data(), 25);
+                    		smsLastFrame++;
+                    	}
+                    	else if(rx_last)
+                    	{
+                    		totalSMSLength = strlen((const char*)smsBuffer);
+                    		if(smsLastFrame == 0)
+                    		    memcpy(&smsBuffer[totalSMSLength], &pf.payload()[1], rx_fn < 25 ? rx_fn : 25);
+                       		else
+                    		    memcpy(&smsBuffer[totalSMSLength], pf.payload().data(), rx_fn < 25 ? rx_fn : 25);
+                    		totalSMSLength = strlen((const char*)smsBuffer);
+                    	}
+                    }
+            		totalSMSLength = strlen((const char*)smsBuffer);
+            		if(rx_last)
+            		{   // store completed message into message queue
+            			char *tmp = (char*)malloc(totalSMSLength+1);
+            			if(tmp != NULL)
+            			{
+            				memset(tmp, 0, totalSMSLength+1);
+            				memcpy(tmp, smsBuffer, totalSMSLength);
+            				smsMessage.push_back(tmp);
+                    		state.totalSMSMessages++;
+               	 //           usart3_mod17_writeBlock(smsMessage[state.totalSMSMessages-1], strlen(smsMessage[state.totalSMSMessages-1]));
+            			}
+            			else
+            			{  // if message memory allocation fails delete sender call
+            				free(smsSender[state.totalSMSMessages]);
+            				smsSender.pop_back();
+            			}
+            		}
                 }
             }
         }
@@ -335,10 +451,10 @@ void OpMode_M17::rxState(rtxStatus_t *const status)
         dataValid     = false;
         extendedCall  = false;
         textStarted   = false;
+        smsStarted    = false;
         memset(textBuffer, 0, 52);
         status->M17_link[0] = '\0';
         status->M17_refl[0] = '\0';
-
         codec_stop(rxAudioPath);
         audioPath_release(rxAudioPath);
     }
@@ -399,7 +515,7 @@ void OpMode_M17::txState(rtxStatus_t *const status)
 
     		uint8_t buf[14];
     		memset(buf, 32, 14); // set to all spaces
-    		// this should return number of meta block needed
+    		// this should return number of meta blocks needed
     		uint8_t msglen = ceilf((float)strlen(state.settings.M17_meta_text) / 13.0f);
     		// set control byte upper nibble for number of text blocks
     		// 0001 = 1 blk. 0011 = 2 blks, 0111 = 3 blks, 1111 = 4 blks
@@ -455,6 +571,85 @@ void OpMode_M17::txState(rtxStatus_t *const status)
         modulator.sendFrame(m17Frame);
         modulator.stop();
     }
+}
+
+void OpMode_M17::txPacketState(rtxStatus_t *const status)
+{
+	frame_t      m17Frame;
+    pktPayload_t packetFrame;
+    uint8_t      full_packet_data[32*25] = {0};
+
+    // do not transmit if sms message empty
+    if(strlen(state.sms_message) == 0)
+    {
+    	// do not enter normal tx mode until de-key from SMS send
+        if(platform_getPttStatus() == false)
+        	state.havePacketData = false;
+    	startRx = true;
+    	return;
+    }
+
+	startTx = false;
+
+    std::string src(status->source_address);
+    std::string dst(status->destination_address);
+
+	lsf.clear();
+	lsf.setSource(src);
+	if(!dst.empty()) lsf.setDestination(dst);
+
+	strcpy(packetData, state.sms_message);
+
+	memset(full_packet_data, 0, 32*25);
+	full_packet_data[0] = 0x05;
+	memcpy((char*)&full_packet_data[1], packetData, strlen(packetData));
+	numPacketbytes                     = strlen(packetData) + 2; //0x05 and 0x00
+	uint16_t packet_crc                = lsf.m17Crc(full_packet_data, numPacketbytes);
+	full_packet_data[numPacketbytes]   = packet_crc & 0xFF;
+	full_packet_data[numPacketbytes+1] = packet_crc >> 8;
+	numPacketbytes += 2; //count 2-byte CRC too
+
+	streamType_t type;
+	type.fields.dataMode   = M17_DATAMODE_PACKET;     // Packet
+	type.fields.dataType   = M17_DATATYPE_DATA;       // data
+	type.fields.CAN        = status->can;             // Channel access number
+
+	lsf.setType(type);
+	lsf.updateCrc();
+
+	encoder.reset();
+	encoder.encodeLsf(lsf, m17Frame);
+
+	radio_enableTx();
+
+	modulator.invertPhase(invertTxPhase);
+	modulator.start();
+	modulator.sendPreamble();
+	modulator.sendFrame(m17Frame);
+
+	uint8_t cnt = 0;
+    while(numPacketbytes > 25)
+    {
+        memcpy(packetFrame.data(), &full_packet_data[cnt*25], 25);
+        packetFrame[25] = cnt << 2;
+        encoder.encodePacketFrame(packetFrame, m17Frame);
+        modulator.sendFrame(m17Frame);
+        cnt++;
+        numPacketbytes -= 25;
+    }
+
+    memset(packetFrame.data(), 0, 26);
+    memcpy(packetFrame.data(), &full_packet_data[cnt*25], numPacketbytes);
+    packetFrame[25] = 0x80 | (numPacketbytes << 2);
+    encoder.encodePacketFrame(packetFrame, m17Frame);
+    modulator.sendFrame(m17Frame);
+
+    encoder.encodeEotFrame(m17Frame);
+    modulator.sendFrame(m17Frame);
+    modulator.stop();
+    startRx = true;
+    memset(state.sms_message, 0, 821);
+    status->opStatus = OFF;
 }
 
 bool OpMode_M17::compareCallsigns(const std::string& localCs,

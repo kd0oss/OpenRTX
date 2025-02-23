@@ -60,10 +60,12 @@ void delay(unsigned int delay)
 #define	AMBE3000_START_BYTE	    0x61U
 #define AMBE3000_TYPE_CONFIG	0x00
 #define AMBE3000_PKT_PARITYMODE	0x3f
+#define AMBE3000_COMPAND_ALAW   0x32
 #define AMBE3000_PKT_RATEP		0x0a
 
-const uint8_t SDV_RESETSOFTCFG_ALAW[11]  = {0x61, 0x00, 0x07, 0x00, 0x34, 0xE8, 0x00, 0x00, 0xE0, 0x00, 0x00};  // Noise suppression Enabled and A-LAW
+const uint8_t SDV_RESETSOFTCFG_ALAW[11]  = {0x61, 0x00, 0x07, 0x00, 0x34, 0xE0, 0x00, 0x00, 0xE0, 0x00, 0x00};  // Noise suppression Enabled and A-LAW
 const uint8_t AMBE3000_PARITY_DISABLE[8] = {AMBE3000_START_BYTE, 0x00, 0x04, AMBE3000_TYPE_CONFIG, AMBE3000_PKT_PARITYMODE, 0x00, 0x2f, 0x14};
+const uint8_t AMBE3000_SET_ALAW[6] = {AMBE3000_START_BYTE, 0x00, 0x01, AMBE3000_TYPE_CONFIG, AMBE3000_COMPAND_ALAW, 0x03};
 const uint8_t AMBE2000_2400_1200[17] = {AMBE3000_START_BYTE, 0x00, 0x0d, AMBE3000_TYPE_CONFIG, AMBE3000_PKT_RATEP, 0x01U, 0x30U, 0x07U, 0x63U, 0x40U, 0x00U, 0x00U, 0x00U, 0x00U, 0x00U, 0x00U, 0x48U};     //DVSI DSTAR
 const uint8_t AMBEP251_4400_2800[17] = {AMBE3000_START_BYTE, 0x00, 0x0d, AMBE3000_TYPE_CONFIG, AMBE3000_PKT_RATEP, 0x05U, 0x58U, 0x08U, 0x6BU, 0x10U, 0x30U, 0x00U, 0x00U, 0x00U, 0x00U, 0x01U, 0x90U};		//DVSI P25 USB Dongle FEC
 
@@ -80,6 +82,36 @@ int16_t  decodeTable[256];
 imbe_vocoder vocoder;
 fd_set fds;
 
+typedef struct
+{
+    uint8_t brightness;           // Display brightness
+    uint8_t contrast;             // Display contrast
+    uint8_t sqlLevel;             // Squelch level
+    uint8_t voxLevel;             // Vox level
+    int8_t  utc_timezone;         // Timezone, in units of half hours
+    bool    gps_enabled;          // GPS active
+    char    callsign[10];         // Plaintext callsign
+    uint8_t display_timer   : 4,  // Standby timer
+            m17_can         : 4;  // M17 CAN
+    uint8_t vpLevel         : 3,  // Voice prompt level
+            vpPhoneticSpell : 1,  // Phonetic spell enabled
+            macroMenuLatch  : 1,  // Automatic latch of macro menu
+            _reserved       : 3;
+    bool    m17_can_rx;           // Check M17 CAN on RX
+    char    m17_dest[10];         // M17 destination
+    char    M17_meta_text[53];    // M17 Meta Text to send
+    char    dstar_mycall[9];      // DSTAR MyCall
+    char    dstar_urcall[9];      // DSTAR UrCall
+    char    dstar_rpt1call[9];    // DSTAR Rpt1Call
+    char    dstar_rpt2call[9];    // DSTAR Rpt2Call
+    char    dstar_suffix[5];      // DSTAR Suffix
+    char    dstar_message[21];    // DSTAR slow speed txt
+    char    dstar_header[38];     // DSTAR TX header data
+    uint32_t p25_srcId;           // P25 Source ID (DMR ID)
+	uint32_t p25_dstId;           // P25 Destination ID (DMR ID or TG)
+	uint16_t p25_nac;             // P25 NAC
+}
+__attribute__((packed)) settings_t;
 
 void dump(char *text, unsigned char *data, unsigned int length)
 {
@@ -235,17 +267,41 @@ void alawDecode(void)
     }
 } // end alawDecode
 
+void loadConfig()
+{
+
+}
+
+void saveConfig(unsigned char *buffer)
+{
+	int8_t *config;
+
+	config = (uint8_t*)malloc(sizeof(settings_t) + 4);
+	if (config == NULL) return;
+
+	free(config);
+}
+
+void getConfig()
+{
+	uint8_t buf[] = {0x61, 0x00, 0x01, 0x10, 0x01};
+    size_t len = write(serialMod17Fd, buf, 5);
+	if (len != 5)
+	{
+		fprintf(stderr, "AMBE_Host: error when writing to Module17, errno=%d\n", errno);
+		return;
+	}
+}
 
 int processSerialmod17(void)
 {
 	unsigned char buffer[BUFFER_LENGTH];
-	unsigned int respLen;
-	unsigned int offset;
-	ssize_t len;
-
-//	size_t bytes;
-//	ioctl(serialMod17Fd, FIONREAD, &bytes);
-//	if (bytes < 1) return 1;
+	unsigned int  respLen;
+	unsigned int  offset;
+	uint8_t       imbe[17] = {0x61U, 0x00U, 0x0DU, 0x00U, 0x00U, 0x0AU};
+	int16_t       pcm[160];
+	uint8_t       payload[200] = {0x61U, 0x00U, 0xA4U, 0x02U, 0x00U, 0x0AU};
+	ssize_t       len;
 
 	len = read(serialMod17Fd, buffer, 1);
 	if (len == 0) return 1;
@@ -286,56 +342,50 @@ int processSerialmod17(void)
 	if (debugM)
 		dump((char*)"Module17 serial data", buffer, respLen);
 
-	if (buffer[3] == 0x04)
+	switch (buffer[3])
 	{
-//		uint8_t imbe[17] = {0x61U, 0x00U, 0x0DU, 0x00U, 0x00U, 0x0AU, 0x04U, 0x0CU, 0xFDU, 0x7BU, 0xFBU, 0x7DU, 0xF2U, 0x7BU, 0x3DU, 0x9EU, 0x45U};
-		uint8_t imbe[17] = {0x61U, 0x00U, 0x0DU, 0x00U, 0x00U, 0x0AU};
-
-		int16_t pcm[160];
+	case 0x03:
+		vocoder.decode_4400(pcm, buffer+6);
 		for (int i=0;i<160;i++)
 		{
-		    pcm[i] = decodeTable[buffer[i+6]];
+			payload[i+6] = alawEncode(pcm[i]);
 		}
-	    vocoder.encode_4400(pcm, imbe+6);
+		if (debugM)
+			dump((char*)"Audio sent", payload, 166);
+		len = write(serialMod17Fd, payload, 166);
+		if (len != 166)
+		{
+			fprintf(stderr, "AMBE_Host: error when writing to Module17, errno=%d\n", errno);
+			return 0;
+		}
+		break;
+
+	case 0x04:
+		for (int i=0;i<160;i++)
+		{
+			pcm[i] = decodeTable[buffer[i+6]];
+		}
+		vocoder.encode_4400(pcm, imbe+6);
 		if (debugM)
 			dump((char*)"IMBE sent", imbe, 17);
-	    len = write(serialMod17Fd, imbe, 17);
+		len = write(serialMod17Fd, imbe, 17);
 		if (len != 17)
 		{
 			fprintf(stderr, "AMBE_Host: error when writing to Module17, errno=%d\n", errno);
 			return 0;
 		}
-	}
-	else
-		if (buffer[3] == 0x03)
-		{
-			int16_t pcm[160];
-			uint8_t buf[166] = {0x61U, 0x00U, 0xA4U, 0x02U, 0x00U, 0x0AU};
-			vocoder.decode_4400(pcm, buffer+6);
-			for (int i=0;i<160;i++)
-			{
-				buf[i+6] = alawEncode(pcm[i]);
-			}
-			if (debugM)
-				dump((char*)"Audio sent", buf, 166);
-			len = write(serialMod17Fd, buf, 166);
-			if (len != 166)
-			{
-				fprintf(stderr, "AMBE_Host: error when writing to Module17, errno=%d\n", errno);
-				return 0;
-			}
-		}
-		else
-		{
+		break;
+
+	default:
 #if !defined(USE_VOCODER)
-			dongleDone = false;
-			len = write(serialDongleFd, buffer, respLen);
-			if (len != respLen) {
-				fprintf(stderr, "AMBE_Host: error when writing to the dongle serial port, errno=%d\n", errno);
-				return 0;
-			}
-#endif
+		dongleDone = false;
+		len = write(serialDongleFd, buffer, respLen);
+		if (len != respLen) {
+			fprintf(stderr, "AMBE_Host: error when writing to the dongle serial port, errno=%d\n", errno);
+			return 0;
 		}
+#endif
+	}
 
 	return 1;
 }
@@ -346,12 +396,7 @@ int processSerialdongle(void)
 	unsigned char buffer[BUFFER_LENGTH];
 	unsigned int  respLen;
 	unsigned int  offset;
-	static int    timeout;
 	ssize_t       len;
-
-//	size_t bytes;
-//	ioctl(serialDongleFd, FIONREAD, &bytes);
-//	if (bytes < 1) return 1;
 
 	len = read(serialDongleFd, buffer, 1);
 	if (len == 0) return 1;
@@ -372,23 +417,18 @@ int processSerialdongle(void)
 
 		if (len == 0)
 			delay(1UL);
-   //     timeout++;
-   //     if (timeout > 2) return 1;
+
 		offset += len;
 	}
 
 	respLen = buffer[1U] * 256U + buffer[2U];
 
-//	timeout = 0U;
 	offset = 0U;
 	while (offset < respLen) {
 		len = read(serialDongleFd, buffer + AMBE3000_HEADER_LEN + offset, respLen - offset);
 
 		if (len == 0)
 			delay(1UL);
-	//	fprintf(stderr, "Len: %ld  RespL: %d  Offset: %d\n", len, respLen, offset);
-   //     timeout++;
-   //     if (timeout > 2) return 1;
 
 		offset += len;
 	}
@@ -480,9 +520,9 @@ int main(int argc, char **argv)
 	} else {
 		fprintf(stderr,"Reset DV3000\n");
 	}
-
 #endif
-	serialMod17Fd = openSerial(mod17tty);
+
+    serialMod17Fd = openSerial(mod17tty);
 	if (serialMod17Fd < 0)
 		return 1;
 	uint8_t buf[6];
@@ -503,6 +543,15 @@ int main(int argc, char **argv)
 	write(serialDongleFd, AMBE3000_PARITY_DISABLE, 8);
 	usleep(5000);
 	read(serialDongleFd, buf, 6);
+	write(serialDongleFd, AMBE3000_SET_ALAW, 5);
+	usleep(5000);
+	read(serialDongleFd, buf, 6);
+	if (buf[5] != 0x00)
+	{
+		fprintf(stderr, "Dongle not in ALAW mode.\n");
+		fflush(stderr);
+		return -1;
+	}
 	write(serialDongleFd, AMBE2000_2400_1200, 17);
 //	write(serialDongleFd, AMBEP251_4400_2800, 17);
 	usleep(5000);
@@ -523,8 +572,6 @@ int main(int argc, char **argv)
 	alawDecode();
 
 	for (;;) {
-//fprintf(stderr, "Here1\n");
-
 		FD_ZERO(&fds);
 		FD_SET(serialMod17Fd, &fds);
 	#if !defined(USE_VOCODER)
@@ -536,14 +583,12 @@ int main(int argc, char **argv)
 		}
 	#endif
 
-	//	fprintf(stderr, "Here2\n");
 		if (FD_ISSET(serialMod17Fd, &fds) && dongleDone) {
 			ret = processSerialmod17();
 			if (!ret)
 				return 1;
 		}
 
-//			fprintf(stderr, "Here3\n");
 #if !defined(USE_VOCODER)
 		if (FD_ISSET(serialDongleFd, &fds)) {
 			ret = processSerialdongle();
@@ -551,7 +596,6 @@ int main(int argc, char **argv)
 				return 1;
 		}
 #endif
-
 	}
 
 	return 0;

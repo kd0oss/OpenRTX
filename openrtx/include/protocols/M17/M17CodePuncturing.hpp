@@ -52,6 +52,14 @@ static constexpr auto DATA_PUNCTURE = std::experimental::make_array< uint8_t >
     1, 1, 1, 1, 1, 0
 );
 
+/**
+ *  Puncture matrix for packet frames.
+ */
+static constexpr auto PACKET_PUNCTURE = std::experimental::make_array< uint8_t >
+(
+    1, 1, 1, 1, 1, 1, 1, 0
+);
+
 
 /**
  * Apply a given puncturing scheme to a byte array.

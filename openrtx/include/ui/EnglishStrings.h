@@ -83,6 +83,7 @@ const stringsTable_t englishStrings =
     .openRTX           = "OpenRTX",
     .gpsSettings       = "GPS Settings",
     .fmsettings        = "FM Settings",
+    .m17smsmenu        = "M17 SMS Menu",
     .m17settings       = "M17 Settings",
     .callsign          = "Callsign:",
     .resetToDefaults   = "Reset to Defaults",

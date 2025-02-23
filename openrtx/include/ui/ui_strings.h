@@ -88,6 +88,7 @@ typedef struct
     const char* gpsSettings;
     const char* fmsettings;
     const char* m17settings;
+    const char* m17smsmenu;
     const char* callsign;
     const char* resetToDefaults;
     const char* toReset;

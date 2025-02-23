@@ -154,9 +154,22 @@ public:
         return prevIdx % SAMPLES_PER_SYM;
     }
 
+    /**
+     * Return the number of samples in the past samples storage
+     *
+     * @return number of samples *data() contains
+     */
+    size_t bufferSize() const
+    {
+        return BUFFER_SIZE;
+    }
+
 private:
 
     static constexpr size_t SYNCWORD_SAMPLES = SYNCW_SIZE * SAMPLES_PER_SYM;
+    static constexpr size_t ADDITIONAL_STORAGE = SAMPLES_PER_SYM;
+
+    static constexpr size_t BUFFER_SIZE = SYNCWORD_SAMPLES + ADDITIONAL_STORAGE;
 
     int16_t samples[SYNCWORD_SAMPLES];  ///< Samples' storage
     size_t  sampIdx;                    ///< Index of the next sample to write

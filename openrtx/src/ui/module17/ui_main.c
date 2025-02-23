@@ -215,7 +215,7 @@ static void _ui_drawModeInfo(ui_state_t* ui_state)
 
             if(rtxStatus.M17_link[0] != '\0')
             {
-                gfx_drawSymbol(layout.line4_pos, layout.line3_symbol_font, TEXT_ALIGN_LEFT,
+                gfx_drawSymbol(layout.line4_pos, layout.line4_symbol_font, TEXT_ALIGN_LEFT,
                             color_white, SYMBOL_ACCESS_POINT);
                 gfx_print(layout.line4_pos, layout.line2_font, TEXT_ALIGN_CENTER,
                         color_white, "%s", rtxStatus.M17_link);
@@ -223,7 +223,7 @@ static void _ui_drawModeInfo(ui_state_t* ui_state)
 
             if(rtxStatus.M17_refl[0] != '\0')
             {
-                gfx_drawSymbol(layout.line3_pos, layout.line4_symbol_font, TEXT_ALIGN_LEFT,
+                gfx_drawSymbol(layout.line3_pos, layout.line3_symbol_font, TEXT_ALIGN_LEFT,
                                color_white, SYMBOL_NETWORK);
                 gfx_print(layout.line3_pos, layout.line2_font, TEXT_ALIGN_CENTER,
                           color_white, "%s", rtxStatus.M17_refl);
@@ -252,6 +252,10 @@ static void _ui_drawModeInfo(ui_state_t* ui_state)
             else
                 last = rtxStatus.M17_src;
 
+            // Show envelope if SMS received
+            if(state.totalSMSMessages > 0)
+                gfx_drawSymbol(layout.top_pos, layout.top_symbol_font, TEXT_ALIGN_CENTER,
+                               color_white, SYMBOL_MAIL);
             // Print CAN
             gfx_print(layout.top_pos, layout.top_font, TEXT_ALIGN_RIGHT,
                       color_white, "CAN %02d", state.settings.m17_can);
@@ -382,19 +386,19 @@ static void _ui_drawModeInfo(ui_state_t* ui_state)
 
                 if(rtxStatus.DSTAR_link[0] != '\0')
                 {
-                    gfx_drawSymbol(layout.line4_pos, layout.line3_symbol_font, TEXT_ALIGN_LEFT,
+                    gfx_drawSymbol(layout.line4_pos, layout.line4_symbol_font, TEXT_ALIGN_LEFT,
                                 color_white, SYMBOL_ACCESS_POINT);
 
-                    gfx_print(layout.line4_pos, layout.line2_font, TEXT_ALIGN_CENTER,
+                    gfx_print(layout.line4_pos, layout.line4_font, TEXT_ALIGN_CENTER,
                             color_white, "%s", rtxStatus.DSTAR_link);
                 }
 
                 if(rtxStatus.DSTAR_refl[0] != '\0')
                 {
-                    gfx_drawSymbol(layout.line3_pos, layout.line4_symbol_font, TEXT_ALIGN_LEFT,
+                    gfx_drawSymbol(layout.line3_pos, layout.line3_symbol_font, TEXT_ALIGN_LEFT,
                                    color_white, SYMBOL_NETWORK);
 
-                    gfx_print(layout.line3_pos, layout.line2_font, TEXT_ALIGN_CENTER,
+                    gfx_print(layout.line3_pos, layout.line3_font, TEXT_ALIGN_CENTER,
                               color_white, "%s", rtxStatus.DSTAR_refl);
                 }
             }

@@ -25,6 +25,7 @@
 #include <cstdint>
 #include <array>
 #include "Correlator.hpp"
+#include "M17Demodulator.hpp"
 
 /**
  * Frame syncronizer class. It allows to find the best sampling point for a

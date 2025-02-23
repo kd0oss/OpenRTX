@@ -27,13 +27,13 @@
 #include <OpMode_DSTAR.hpp>
 #include <cstdint>
 #include <errno.h>
-#include <rtx.h>
 #include <state.h>
 #include <settings.h>
 //#include <drivers/USART3_MOD17.h> // for debugging
 #include <drivers/usb_vcom.h>
 #include <DSTAR/RingBuffer.h>
 #include <dstar_audio_codec.h>
+#include <rtx.h>
 
 #ifdef PLATFORM_MOD17
 #include <calibInfo_Mod17.h>

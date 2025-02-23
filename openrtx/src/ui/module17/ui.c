@@ -24,7 +24,6 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <ui/ui_mod17.h>
-#include <rtx.h>
 #include <interfaces/platform.h>
 #include <interfaces/display.h>
 #include <interfaces/cps_io.h>
@@ -34,6 +33,7 @@
 #include <battery.h>
 #include <input.h>
 #include <hwconfig.h>
+#include <rtx.h>
 
 /* UI main screen functions, their implementation is in "ui_main.c" */
 extern void _ui_drawMainBackground();
@@ -54,6 +54,7 @@ extern void _ui_drawSettingsGPS(ui_state_t* ui_state);
 extern void _ui_drawMenuSettings(ui_state_t* ui_state);
 extern void _ui_drawMenuMode(ui_state_t* ui_state);
 extern void _ui_drawMenuInfo(ui_state_t* ui_state);
+extern void _ui_drawSMSMenu(ui_state_t* ui_state);
 extern void _ui_drawMenuAbout();
 #ifdef CONFIG_RTC
 extern void _ui_drawSettingsTimeDate();
@@ -127,10 +128,17 @@ const char *mode_sel_items[] =
 #endif
 };
 
+const char *m17sms_items[] =
+{
+    "Send",
+	"View"
+};
+
 const char *m17_items[] =
 {
     "Callsign",
-	"Message",
+	"Meta Txt",
+	"SMS",
     "CAN",
     "CAN RX Check"
 };
@@ -224,6 +232,7 @@ const uint8_t display_num = sizeof(display_items)/sizeof(display_items[0]);
 const uint8_t settings_gps_num = sizeof(settings_gps_items)/sizeof(settings_gps_items[0]);
 #endif
 const uint8_t fm_num = sizeof(fm_items)/sizeof(fm_items[0]);
+const uint8_t m17sms_num = sizeof(m17sms_items)/sizeof(m17sms_items[0]);
 const uint8_t m17_num = sizeof(m17_items)/sizeof(m17_items[0]);
 const uint8_t module17_num = sizeof(module17_items)/sizeof(module17_items[0]);
 #if defined(CONFIG_DSTAR)
@@ -608,6 +617,9 @@ static void _ui_menuUp(uint8_t menu_entries)
     if((softpot == 0) && (state.ui_screen == SETTINGS_MODULE17))
         maxEntries -= 2;
 
+	if(ui_state.menu_selected > maxEntries)
+		ui_state.menu_selected = 1;
+
     if(ui_state.menu_selected > 0)
         ui_state.menu_selected -= 1;
     else
@@ -628,6 +640,9 @@ static void _ui_menuDown(uint8_t menu_entries)
     if((softpot == 0) && (state.ui_screen == SETTINGS_MODULE17))
         maxEntries -= 2;
 
+	if(ui_state.menu_selected > maxEntries)
+		ui_state.menu_selected = maxEntries;
+
     if(ui_state.menu_selected < maxEntries)
         ui_state.menu_selected += 1;
     else
@@ -639,6 +654,14 @@ static void _ui_menuBack(uint8_t prev_state)
     if(ui_state.edit_mode)
     {
     	ui_state.edit_mode = false;
+    }
+    else if(ui_state.edit_message)
+    {
+    	ui_state.edit_message = false;
+    }
+    else if(ui_state.edit_sms)
+    {
+    	ui_state.edit_sms = false;
     }
 #if defined(CONFIG_DSTAR)
     else if(ui_state.edit_mycall)
@@ -660,10 +683,6 @@ static void _ui_menuBack(uint8_t prev_state)
     else if(ui_state.edit_suffix)
     {
     	ui_state.edit_suffix = false;
-    }
-    else if(ui_state.edit_message)
-    {
-    	ui_state.edit_message = false;
     }
 #endif
 #if defined(CONFIG_P25)
@@ -695,10 +714,13 @@ static void _ui_textInputReset(char *buf)
     ui_state.input_position = 0;
     ui_state.input_set = 0;
     ui_state.last_keypress = 0;
-    memset(buf, 0, 9);
+    if(ui_state.edit_message || ui_state.edit_sms)
+    	memset(buf, 0, 821);
+    else
+        memset(buf, 0, 9);
 }
 
-static void _ui_textInputArrows(char *buf, uint8_t max_len, kbd_msg_t msg)
+static void _ui_textInputArrows(char *buf, uint16_t max_len, kbd_msg_t msg)
 {
     if(ui_state.input_position >= max_len)
         return;
@@ -1091,6 +1113,62 @@ void ui_updateFSM(bool *sync_rtx)
                 }
             	break;
 
+            // M17 SMS Settings
+            case SETTINGS_SMS:
+                if(ui_state.edit_sms)
+                {
+                    if(msg.keys & KEY_ENTER)
+                    {
+                        _ui_textInputConfirm(ui_state.new_message);
+                        // Save selected message and disable input mode
+                        strncpy(state.sms_message, ui_state.new_message, 820);
+                        ui_state.edit_sms = false;
+                        if(strlen(state.sms_message) > 0)
+                            state.havePacketData = true;
+                    }
+                    else if(msg.keys & KEY_ESC)
+                        ui_state.edit_sms = false;
+                    else
+                        _ui_textInputArrows(ui_state.new_message, 820, msg);
+                }
+                else if(msg.keys & KEY_ENTER)
+                {
+               		if(ui_state.menu_selected == M_SMSSEND)
+               		{
+               			ui_state.edit_sms = true;
+        		        _ui_textInputReset(ui_state.new_message);
+               		}
+               		else if(ui_state.menu_selected == M_SMSVIEW && !ui_state.view_sms)
+               		{
+               			ui_state.view_sms = true;
+               		}
+               		else if(ui_state.view_sms)
+               		{
+                		state.delSMSMessage = true;
+               		}
+                }
+                else if(msg.keys & KEY_UP || msg.keys & KNOB_LEFT)
+                {
+                	if(ui_state.view_sms)
+                		state.currentSMSLine--;
+                	else
+                        _ui_menuUp(m17sms_num);
+                }
+                else if(msg.keys & KEY_DOWN || msg.keys & KNOB_RIGHT)
+                {
+                	if(ui_state.view_sms)
+                		state.currentSMSLine++;
+                	else
+                        _ui_menuDown(m17sms_num);
+                }
+                else if(msg.keys & KEY_ESC)
+                {
+           			ui_state.view_sms = false;
+                    *sync_rtx = true;
+                    _ui_menuBack(SETTINGS_M17);
+                }
+                break;
+
             // M17 Settings
             case SETTINGS_M17:
 
@@ -1168,6 +1246,9 @@ void ui_updateFSM(bool *sync_rtx)
                     		    ui_state.edit_message = true;
                     		    _ui_textInputReset(ui_state.new_message);
                     		    break;
+                    	    case M_SMS:
+                    		    state.ui_screen = SETTINGS_SMS;
+                    	    	break;
                     	    default:
                     		    state.ui_screen = SETTINGS_M17;
                     	}
@@ -1598,7 +1679,6 @@ void ui_updateFSM(bool *sync_rtx)
 
 bool ui_updateGUI()
 {
-//    usart1_writeBlock((void*)"GUI update\n", 11);
     if(!layout_ready)
     {
         layout = _ui_calculateLayout();
@@ -1625,13 +1705,17 @@ bool ui_updateGUI()
             break;
         // Info menu screen
         case MENU_INFO:
-            _ui_drawMenuInfo(&ui_state);
-            break;
-        // About menu screen
+        	_ui_drawMenuInfo(&ui_state);
+        	break;
+        	// About menu screen
         case MENU_ABOUT:
-            _ui_drawMenuAbout(&ui_state);
-            break;
-        // Display settings screen
+        	_ui_drawMenuAbout(&ui_state);
+        	break;
+        	// SMS menu screen
+        case SETTINGS_SMS:
+        	_ui_drawSMSMenu(&ui_state);
+        	break;
+        	// Display settings screen
         case SETTINGS_DISPLAY:
         	_ui_drawSettingsDisplay(&ui_state);
         	break;

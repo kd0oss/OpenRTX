@@ -31,7 +31,7 @@
 #include <stdio.h>
 #include <errno.h>
 #include <dsp.h>
-#include <drivers/USART3_MOD17.h> // used for debugging
+//#include <drivers/USART3_MOD17.h> // used for debugging
 #include <cstdint>
 #include <DSTAR/RingBuffer.h>
 #include <imbe_vocoder_api.h>
@@ -172,7 +172,6 @@ static void *encodeFunc(void *arg)
     streamId        iStream;
     pathId          iPath = *((pathId*) arg);
     stream_sample_t audioBuf[320];
-//    filter_state_t  dcrState;
 
     iStream = audioStream_start(iPath, audioBuf, 320, 8000,
                                 STREAM_INPUT | BUF_CIRC_DOUBLE);
@@ -182,8 +181,6 @@ static void *encodeFunc(void *arg)
         running = false;
         return NULL;
     }
-
-//    dsp_resetFilterState(&dcrState);
 
     uint8_t *cRxBuffer = (uint8_t*)malloc(166 * sizeof(uint8_t));
 
@@ -204,9 +201,6 @@ static void *encodeFunc(void *arg)
 #ifndef PLATFORM_LINUX
         // Pre-amplification stage
         for(size_t i = 0; i < audio.len; i++) audio.data[i] *= micGainPre;
-
-        // DC removal
-   //     dsp_dcRemoval(&dcrState, audio.data, audio.len);
 
         if(cRxBuffer != NULL)
         {

@@ -26,8 +26,8 @@
 #include <interfaces/delays.h>
 #include <interfaces/gpio.h>
 #include <interfaces/platform.h>
-#include <rtx.h>
 #include <hwconfig.h>
+#include "../../openrtx/include/rtx/rtx.h"
 
 /*
  * Uncomment this directive to sample audio coming from RTX stage instead of the

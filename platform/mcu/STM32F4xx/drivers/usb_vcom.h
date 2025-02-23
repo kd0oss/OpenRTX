@@ -53,6 +53,14 @@ ssize_t vcom_writeBlock(const void *buf, size_t len);
 ssize_t vcom_bytesReady();
 
 /**
+ * Peek at byte at position.
+ * \param buf buffer to write byte
+ * \param pos position of byte to return
+ * Added by KD0OSS 2025
+ */
+bool vcom_peekByte(void* buf, size_t pos);
+
+/**
 * Read a block of data, nonblocking function.
 * \param buffer buffer where read data will be stored.
 * \param size buffer size.
