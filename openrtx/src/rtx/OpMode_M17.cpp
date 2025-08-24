@@ -606,10 +606,21 @@ void OpMode_M17::txState(rtxStatus_t *const status)
 
         	gnss[0] = (M17_GNSS_SOURCE_OPENRTX<<4) | M17_GNSS_STATION_HANDHELD; //OpenRTX source, portable station
 
-            gnss[1] &= ~((uint8_t)0xF0); //zero out gnss data validity field
+            gnss[1] = 0;
 
-            gnss[1] &= ~((uint8_t)0x7<<1); //Radius = 0
-            gnss[1] &= ~((uint8_t)0<<4); //Radius invalid
+            if (gps_data.hdop > 0) // HDOP is valid
+            { 
+                uint16_t r, log2r = 0;
+                //Radius is approximated as hdop * 5
+                //hdop is in cm, so divide by 100 and round to nearest
+                r = (gps_data.hdop * 5 + 50) / 100;
+                // log2r = ceil(log2(r))
+                do ++log2r; while (r >>= 1);
+                if (log2r > 7) log2r = 7;
+
+                gnss[1] = (uint8_t)(log2r<<1)&0x0E;
+                gnss[1] |= 1<<4; //Radius valid
+            }
 
             gnss[1] |= ((uint16_t)gps_data.tmg_true>>8)&1; //Bearing
             gnss[2] = ((uint16_t)gps_data.tmg_true)&0xFF;
