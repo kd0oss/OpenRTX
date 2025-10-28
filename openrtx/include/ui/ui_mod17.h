@@ -23,11 +23,7 @@
 #define UI_MOD17_H
 
 #include <stdbool.h>
-#if !defined(REPEATER) && !defined(HOTSPOT)
 #include <state.h>
-#else
-#include <state_rpt.h>
-#endif
 #include <graphics.h>
 #include <interfaces/keyboard.h>
 #include <calibInfo_Mod17.h>
@@ -70,12 +66,6 @@ enum uiScreen
     SETTINGS_DISPLAY,
     SETTINGS_GPS,
     SETTINGS_M17,
-#if defined(CONFIG_DSTAR)
-    SETTINGS_DSTAR,
-#endif
-#if defined(CONFIG_P25)
-    SETTINGS_P25,
-#endif
     SETTINGS_FM,
     SETTINGS_MODULE17,
     SETTINGS_RESET2DEFAULTS,
@@ -113,12 +103,6 @@ enum settingsItems
 #endif
     ,S_M17
     ,S_FM
-#ifdef CONFIG_DSTAR
-    ,S_DSTAR
-#endif
-#if defined CONFIG_P25
-    ,S_P25
-#endif
     ,S_MOD17
     ,S_RESET2DEFAULTS
 };
@@ -127,24 +111,12 @@ enum modeItems
 {
     M17
     ,FM
-#ifdef CONFIG_DSTAR
-    ,DSTAR
-#endif
-#ifdef CONFIG_P25
-    ,P25
-#endif
 };
 
 enum modeConfItems
 {
     M_M17
     ,M_FM
-#ifdef CONFIG_DSTAR
-    ,M_DSTAR
-#endif
-#ifdef CONFIG_P25
-    ,P_25
-#endif
 };
 
 enum backupRestoreItems
@@ -198,31 +170,6 @@ enum m17Items
     M_CAN,
     M_CAN_RX
 };
-
-#ifdef CONFIG_DSTAR
-enum dstarItems
-{
-    M_MyCall = 0,
-    M_UrCall,
-    M_Suffix,
-    M_Rpt1Call,
-    M_Rpt2Call,
-    M_Message,
-    M_DSTARRXLEVEL,
-    M_DSTARTXLEVEL
-};
-#endif
-
-#ifdef CONFIG_P25
-enum p25Items
-{
-    M_SRCID = 0,
-    M_DSTID,
-    M_NAC,
-    M_P25RXLEVEL,
-    M_P25TXLEVEL
-};
-#endif
 
 enum module17Items
 {
@@ -294,21 +241,9 @@ typedef struct ui_state_t
     uint8_t menu_selected;
     // If true we can change a menu entry value with UP/DOWN
     bool edit_mode;
-#if defined(CONFIG_DSTAR)
-    bool edit_mycall;
-    bool edit_urcall;
-    bool edit_suffix;
-    bool edit_rpt1call;
-    bool edit_rpt2call;
-#endif
     bool edit_message;
     bool edit_sms;
     bool view_sms;
-#if defined(CONFIG_P25)
-    bool edit_srcid;
-    bool edit_dstid;
-    bool edit_nac;
-#endif
     // Variables used for VFO input
     uint8_t input_number;
     uint8_t input_position;
@@ -343,13 +278,7 @@ extern const char *settings_gps_items[];
 extern const char *m17sms_items[];
 extern const char *m17_items[];
 extern const char *module17_items[];
-#if defined(CONFIG_DSTAR)
-extern const char *dstar_items[];
-#endif
 extern const char *fm_items[];
-#if defined(CONFIG_P25)
-extern const char *p25_items[];
-#endif
 extern const char *backup_restore_items[];
 extern const char *info_items[];
 extern const char *authors[];
@@ -366,12 +295,6 @@ extern const uint8_t fm_num;
 extern const uint8_t m17sms_num;
 extern const uint8_t m17_num;
 extern const uint8_t module17_num;
-#if defined(CONFIG_DSTAR)
-extern const uint8_t dstar_num;
-#endif
-#if defined(CONFIG_P25)
-extern const uint8_t p25_num;
-#endif
 extern const uint8_t info_num;
 extern const uint8_t author_num;
 extern const color_t color_black;
