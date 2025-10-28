@@ -35,6 +35,7 @@
 
 /* UI main screen helper functions, their implementation is in "ui_main.c" */
 extern void _ui_drawMainBottom();
+extern const float ctcss_index[];
 
 
 const char *mic_gain_values[] =
@@ -68,6 +69,19 @@ const char *bbTuningPot[] =
     "Soft",
     "Hard"
 };
+
+const char *mode_values[] =
+{
+    "M17"
+    ,"FM"
+#ifdef CONFIG_DSTAR
+    ,"DSTAR"
+#endif
+#ifdef CONFIG_P25
+    ,"P25"
+#endif
+};
+
 
 void _ui_drawMenuList(uint8_t selected, int (*getCurrentEntry)(char *buf, uint8_t max_len, uint8_t index))
 {
@@ -129,7 +143,15 @@ void _ui_drawMenuListValue(ui_state_t* ui_state, uint8_t selected,
                 // If we are in edit mode, draw a hollow rectangle
                 text_color = color_black;
                 bool full_rect = true;
-                if(ui_state->edit_mode)
+                if(ui_state->edit_mode
+#if defined(CONFIG_DSTAR)
+                    || ui_state->edit_mycall || ui_state->edit_urcall || ui_state->edit_rpt1call ||
+                    ui_state->edit_rpt2call || ui_state->edit_suffix
+#endif
+#if defined(CONFIG_P25)
+                    || ui_state->edit_srcid || ui_state->edit_dstid || ui_state->edit_nac
+#endif
+                    || ui_state->edit_message || ui_state->edit_sms)
                 {
                     text_color = color_white;
                     full_rect = false;
@@ -273,6 +295,178 @@ int _ui_getM17ValueName(char *buf, uint8_t max_len, uint8_t index)
         case M_CAN_RX:
             snprintf(buf, max_len, "%s", (last_state.settings.m17_can_rx) ? "On" : "Off");
             break;
+    }
+
+    return 0;
+}
+
+#if defined(CONFIG_DSTAR)
+int _ui_getDSTAREntryName(char *buf, uint8_t max_len, uint8_t index)
+{
+    if(index >= dstar_num) return -1;
+    snprintf(buf, max_len, "%s", dstar_items[index]);
+    return 0;
+}
+
+int _ui_getDSTARValueName(char *buf, uint8_t max_len, uint8_t index)
+{
+    if(index >= dstar_num) return -1;
+
+    switch(index)
+    {
+        case M_MyCall:
+            snprintf(buf, max_len, "%s", last_state.settings.dstar_mycall);
+            return 0;
+        case M_UrCall:
+            snprintf(buf, max_len, "%s", last_state.settings.dstar_urcall);
+            return 0;
+        case M_Rpt1Call:
+            snprintf(buf, max_len, "%s", last_state.settings.dstar_rpt1call);
+            return 0;
+        case M_Rpt2Call:
+            snprintf(buf, max_len, "%s", last_state.settings.dstar_rpt2call);
+            return 0;
+        case M_Suffix:
+            snprintf(buf, max_len, "%s", last_state.settings.dstar_suffix);
+            return 0;
+        case M_Message:
+            // limit display to 8 characters
+            if (strlen(last_state.settings.dstar_message) > 8)
+            {
+                char tmp[9];
+                memcpy(tmp, last_state.settings.dstar_message, 8);
+                tmp[8] = 0;
+                // append asterisk to indicate more characters than displayed
+                snprintf(buf, max_len, "%s*", tmp);
+            }
+            else
+                snprintf(buf, max_len, "%s", last_state.settings.dstar_message);
+        return 0;
+        case M_DSTARRXLEVEL:
+            snprintf(buf, max_len, "%d", (int)mod17CalData.dstar_rx_level);
+            return 0;
+        case M_DSTARTXLEVEL:
+            snprintf(buf, max_len, "%d", (int)mod17CalData.dstar_tx_level);
+            return 0;
+    }
+
+    return 0;
+}
+#endif
+int _ui_getFMEntryName(char *buf, uint8_t max_len, uint8_t index)
+{
+    if(index >= fm_num) return -1;
+    snprintf(buf, max_len, "%s", fm_items[index]);
+    return 0;
+}
+
+uint16_t tmp = 0;
+div_t   code;
+int _ui_getFMValueName(char *buf, uint8_t max_len, uint8_t index)
+{
+    if(index >= fm_num) return -1;
+
+    switch(index)
+    {
+        case M_FMRXLEVEL:
+            snprintf(buf, max_len, "%d", (int)mod17CalData.fm_rx_level);
+            return 0;
+        case M_FMTXLEVEL:
+            snprintf(buf, max_len, "%d", (int)mod17CalData.fm_tx_level);
+            return 0;
+        case M_CTCSSRX:
+            tmp = ctcss_index[mod17CalData.ctcssrx_freq] * 10;
+            code = div(tmp, 10);
+            if (tmp > 0)
+                snprintf(buf, max_len, "%d.%d", code.quot, code.rem);
+        else
+            snprintf(buf, max_len, "OFF");
+        return 0;
+        case M_CTCSSTX:
+            tmp = ctcss_index[mod17CalData.ctcsstx_freq] * 10;
+            code = div(tmp, 10);
+            if (tmp > 0)
+                snprintf(buf, max_len, "%d.%d", code.quot, code.rem);
+        else
+            snprintf(buf, max_len, "OFF");
+        return 0;
+        case M_CTCSSTX_LEV:
+            snprintf(buf, max_len, "%d", (int)mod17CalData.ctcsstx_level);
+            return 0;
+        case M_CTCSSRX_THRSHHI:
+            snprintf(buf, max_len, "%d", (int)mod17CalData.ctcssrx_thrshhi);
+            return 0;
+        case M_CTCSSRX_THRSHLO:
+            snprintf(buf, max_len, "%d", (int)mod17CalData.ctcssrx_thrshlo);
+            return 0;
+        case M_NOISESQ:
+            if(mod17CalData.noisesq_on)
+                snprintf(buf, max_len, "On");
+        else
+            snprintf(buf, max_len, "Off");
+        return 0;
+        case M_NOISESQ_THRSHHI:
+            snprintf(buf, max_len, "%d", (int)mod17CalData.noisesq_thrshhi);
+            return 0;
+        case M_NOISESQ_THRSHLO:
+            snprintf(buf, max_len, "%d", (int)mod17CalData.noisesq_thrshlo);
+            return 0;
+    }
+
+    return 0;
+}
+#if defined(CONFIG_P25)
+int _ui_getP25EntryName(char *buf, uint8_t max_len, uint8_t index)
+{
+    if(index >= p25_num) return -1;
+    snprintf(buf, max_len, "%s", p25_items[index]);
+    return 0;
+}
+
+int _ui_getP25ValueName(char *buf, uint8_t max_len, uint8_t index)
+{
+    if(index >= p25_num) return -1;
+
+    switch(index)
+    {
+        case M_SRCID:
+            snprintf(buf, max_len, "%d", (int)last_state.settings.p25_srcId);
+            return 0;
+        case M_DSTID:
+            snprintf(buf, max_len, "%d", (int)last_state.settings.p25_dstId);
+            return 0;
+        case M_NAC:
+            snprintf(buf, max_len, "%d", last_state.settings.p25_nac);
+            return 0;
+        case M_P25RXLEVEL:
+            snprintf(buf, max_len, "%d", (int)mod17CalData.p25_rx_level);
+            return 0;
+        case M_P25TXLEVEL:
+            snprintf(buf, max_len, "%d", (int)mod17CalData.p25_tx_level);
+            return 0;
+    }
+
+    return 0;
+}
+#endif
+int _ui_getModeEntryName(char *buf, uint8_t max_len, uint8_t index)
+{
+    if(index >= mode_num) return -1;
+    snprintf(buf, max_len, "%s", mode_items[index]);
+    return 0;
+}
+
+int _ui_getModeValueName(char *buf, uint8_t max_len, uint8_t index)
+{
+    if(index >= mode_num) return -1;
+
+    switch(index)
+    {
+        case M_MODE:
+            snprintf(buf, max_len, "%s", mode_values[digital_mode]);
+            break;
+        default:
+            snprintf(buf, max_len, "%s", mode_values[digital_mode]);
     }
 
     return 0;
@@ -493,6 +687,16 @@ void _ui_drawMenuGPS()
                      last_state.gps_data.active_sats);
 }
 #endif
+
+void _ui_drawMenuMode(ui_state_t* ui_state)
+{
+    gfx_clearScreen();
+    // Print "Mode" on top bar
+    gfx_print(layout.top_pos, layout.top_font, TEXT_ALIGN_CENTER,
+              color_white, "Mode");
+    // Print menu entries
+    _ui_drawMenuListValue(ui_state, ui_state->menu_selected, _ui_getModeEntryName, _ui_getModeValueName);
+}
 
 void _ui_drawMenuSettings(ui_state_t* ui_state)
 {
@@ -775,6 +979,16 @@ void _ui_drawSMSMenu(ui_state_t* ui_state)
     }
 }
 
+void _ui_drawSettingsFM(ui_state_t* ui_state)
+{
+    gfx_clearScreen();
+    gfx_print(layout.top_pos, layout.top_font, TEXT_ALIGN_CENTER,
+              color_white, "FM Settings");
+
+    _ui_drawMenuListValue(ui_state, ui_state->menu_selected, _ui_getFMEntryName,
+                          _ui_getFMValueName);
+}
+
 void _ui_drawSettingsM17(ui_state_t* ui_state)
 {
     gfx_clearScreen();
@@ -823,6 +1037,196 @@ void _ui_drawSettingsM17(ui_state_t* ui_state)
                              _ui_getM17ValueName);
     }
 }
+
+#if defined(CONFIG_P25)
+void _ui_drawSettingsP25(ui_state_t* ui_state)
+{
+    gfx_clearScreen();
+    gfx_print(layout.top_pos, layout.top_font, TEXT_ALIGN_CENTER,
+              color_white, "P25 Settings");
+
+    if(ui_state->edit_srcid)
+    {
+        gfx_printLine(1, 4, layout.top_h, CONFIG_SCREEN_HEIGHT - layout.bottom_h,
+                      layout.horizontal_pad, layout.menu_font,
+                      TEXT_ALIGN_LEFT, color_white, "DMR Id:");
+
+        // Print P25 Source Id being typed
+        gfx_printLine(1, 1, layout.top_h, CONFIG_SCREEN_HEIGHT - layout.bottom_h,
+                      layout.horizontal_pad, layout.input_font,
+                      TEXT_ALIGN_CENTER, color_white, ui_state->new_callsign);
+
+        // Print Button Info
+        gfx_print(layout.line5_pos, layout.line5_font, TEXT_ALIGN_LEFT,
+                  color_white, "Cancel");
+        gfx_print(layout.line5_pos, layout.line5_font, TEXT_ALIGN_RIGHT,
+                  color_white, "Accept");
+    }
+    else
+        if(ui_state->edit_dstid)
+        {
+            gfx_printLine(1, 4, layout.top_h, CONFIG_SCREEN_HEIGHT - layout.bottom_h,
+                          layout.horizontal_pad, layout.menu_font,
+                          TEXT_ALIGN_LEFT, color_white, "Dest Id:");
+
+            // Print P25 Destination Id being typed
+            gfx_printLine(1, 1, layout.top_h, CONFIG_SCREEN_HEIGHT - layout.bottom_h,
+                          layout.horizontal_pad, layout.input_font,
+                          TEXT_ALIGN_CENTER, color_white, ui_state->new_callsign);
+
+            // Print Button Info
+            gfx_print(layout.line5_pos, layout.line5_font, TEXT_ALIGN_LEFT,
+                      color_white, "Cancel");
+            gfx_print(layout.line5_pos, layout.line5_font, TEXT_ALIGN_RIGHT,
+                      color_white, "Accept");
+        }
+        else
+            if(ui_state->edit_nac)
+            {
+                gfx_printLine(1, 4, layout.top_h, CONFIG_SCREEN_HEIGHT - layout.bottom_h,
+                              layout.horizontal_pad, layout.menu_font,
+                              TEXT_ALIGN_LEFT, color_white, "NAC:");
+
+                // Print P25 NAC Id being typed
+                gfx_printLine(1, 1, layout.top_h, CONFIG_SCREEN_HEIGHT - layout.bottom_h,
+                              layout.horizontal_pad, layout.input_font,
+                              TEXT_ALIGN_CENTER, color_white, ui_state->new_callsign);
+
+                // Print Button Info
+                gfx_print(layout.line5_pos, layout.line5_font, TEXT_ALIGN_LEFT,
+                          color_white, "Cancel");
+                gfx_print(layout.line5_pos, layout.line5_font, TEXT_ALIGN_RIGHT,
+                          color_white, "Accept");
+            }
+            else
+            {
+                _ui_drawMenuListValue(ui_state, ui_state->menu_selected, _ui_getP25EntryName,
+                                      _ui_getP25ValueName);
+            }
+}
+#endif
+
+#if defined(CONFIG_DSTAR)
+void _ui_drawSettingsDSTAR(ui_state_t* ui_state)
+{
+    gfx_clearScreen();
+    gfx_print(layout.top_pos, layout.top_font, TEXT_ALIGN_CENTER,
+              color_white, "DSTAR Settings");
+
+    if(ui_state->edit_mycall)
+    {
+        gfx_printLine(1, 4, layout.top_h, CONFIG_SCREEN_HEIGHT - layout.bottom_h,
+                      layout.horizontal_pad, layout.menu_font,
+                      TEXT_ALIGN_LEFT, color_white, "MyCall:");
+
+        // Print DSTAR MyCall being typed
+        gfx_printLine(1, 1, layout.top_h, CONFIG_SCREEN_HEIGHT - layout.bottom_h,
+                      layout.horizontal_pad, layout.input_font,
+                      TEXT_ALIGN_CENTER, color_white, ui_state->new_callsign);
+
+        // Print Button Info
+        gfx_print(layout.line5_pos, layout.line5_font, TEXT_ALIGN_LEFT,
+                  color_white, "Cancel");
+        gfx_print(layout.line5_pos, layout.line5_font, TEXT_ALIGN_RIGHT,
+                  color_white, "Accept");
+    }
+    else
+        if(ui_state->edit_urcall)
+        {
+            gfx_printLine(1, 4, layout.top_h, CONFIG_SCREEN_HEIGHT - layout.bottom_h,
+                          layout.horizontal_pad, layout.menu_font,
+                          TEXT_ALIGN_LEFT, color_white, "UrCall:");
+
+            // Print DSTAR UrCall being typed
+            gfx_printLine(1, 1, layout.top_h, CONFIG_SCREEN_HEIGHT - layout.bottom_h,
+                          layout.horizontal_pad, layout.input_font,
+                          TEXT_ALIGN_CENTER, color_white, ui_state->new_callsign);
+
+            // Print Button Info
+            gfx_print(layout.line5_pos, layout.line5_font, TEXT_ALIGN_LEFT,
+                      color_white, "Cancel");
+            gfx_print(layout.line5_pos, layout.line5_font, TEXT_ALIGN_RIGHT,
+                      color_white, "Accept");
+        }
+        else
+            if(ui_state->edit_rpt1call)
+            {
+                gfx_printLine(1, 4, layout.top_h, CONFIG_SCREEN_HEIGHT - layout.bottom_h,
+                              layout.horizontal_pad, layout.menu_font,
+                              TEXT_ALIGN_LEFT, color_white, "Rpt1Call:");
+
+                // Print DSTAR Rpt1Call being typed
+                gfx_printLine(1, 1, layout.top_h, CONFIG_SCREEN_HEIGHT - layout.bottom_h,
+                              layout.horizontal_pad, layout.input_font,
+                              TEXT_ALIGN_CENTER, color_white, ui_state->new_callsign);
+
+                // Print Button Info
+                gfx_print(layout.line5_pos, layout.line5_font, TEXT_ALIGN_LEFT,
+                          color_white, "Cancel");
+                gfx_print(layout.line5_pos, layout.line5_font, TEXT_ALIGN_RIGHT,
+                          color_white, "Accept");
+            }
+            else
+                if(ui_state->edit_rpt2call)
+                {
+                    gfx_printLine(1, 4, layout.top_h, CONFIG_SCREEN_HEIGHT - layout.bottom_h,
+                                  layout.horizontal_pad, layout.menu_font,
+                                  TEXT_ALIGN_LEFT, color_white, "Rpt2Call:");
+
+                    // Print DSTAR Rpt2Call being typed
+                    gfx_printLine(1, 1, layout.top_h, CONFIG_SCREEN_HEIGHT - layout.bottom_h,
+                                  layout.horizontal_pad, layout.input_font,
+                                  TEXT_ALIGN_CENTER, color_white, ui_state->new_callsign);
+
+                    // Print Button Info
+                    gfx_print(layout.line5_pos, layout.line5_font, TEXT_ALIGN_LEFT,
+                              color_white, "Cancel");
+                    gfx_print(layout.line5_pos, layout.line5_font, TEXT_ALIGN_RIGHT,
+                              color_white, "Accept");
+                }
+                else
+                    if(ui_state->edit_suffix)
+                    {
+                        gfx_printLine(1, 4, layout.top_h, CONFIG_SCREEN_HEIGHT - layout.bottom_h,
+                                      layout.horizontal_pad, layout.menu_font,
+                                      TEXT_ALIGN_LEFT, color_white, "Suffix:");
+
+                        // Print DSTAR Suffix being typed
+                        gfx_printLine(1, 1, layout.top_h, CONFIG_SCREEN_HEIGHT - layout.bottom_h,
+                                      layout.horizontal_pad, layout.input_font,
+                                      TEXT_ALIGN_CENTER, color_white, ui_state->new_callsign);
+
+                        // Print Button Info
+                        gfx_print(layout.line5_pos, layout.line5_font, TEXT_ALIGN_LEFT,
+                                  color_white, "Cancel");
+                        gfx_print(layout.line5_pos, layout.line5_font, TEXT_ALIGN_RIGHT,
+                                  color_white, "Accept");
+                    }
+                    else
+                        if(ui_state->edit_message)
+                        {
+                            gfx_printLine(1, 4, layout.top_h, CONFIG_SCREEN_HEIGHT - layout.bottom_h,
+                                          layout.horizontal_pad, layout.menu_font,
+                                          TEXT_ALIGN_LEFT, color_white, "Message:");
+
+                            // Print DSTAR Message being typed
+                            gfx_printLine(1, 1, layout.top_h, CONFIG_SCREEN_HEIGHT - layout.bottom_h,
+                                          layout.horizontal_pad, layout.message_font,
+                                          TEXT_ALIGN_CENTER, color_white, ui_state->new_message);
+
+                            // Print Button Info
+                            gfx_print(layout.line5_pos, layout.line5_font, TEXT_ALIGN_LEFT,
+                                      color_white, "Cancel");
+                            gfx_print(layout.line5_pos, layout.line5_font, TEXT_ALIGN_RIGHT,
+                                      color_white, "Accept");
+                        }
+                        else
+                        {
+                            _ui_drawMenuListValue(ui_state, ui_state->menu_selected, _ui_getDSTAREntryName,
+                                                  _ui_getDSTARValueName);
+                        }
+}
+#endif
 
 void _ui_drawSettingsModule17(ui_state_t* ui_state)
 {

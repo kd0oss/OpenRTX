@@ -31,6 +31,9 @@
 #include <unistd.h>
 #include <stdlib.h>
 
+#if defined(CONFIG_DSTAR) || defined(CONFIG_P25)
+extern bool host_found;
+#endif
 
 static char message[54];
 static bool scrollStarted = false;
@@ -112,6 +115,65 @@ static void _ui_drawModeInfo(ui_state_t* ui_state)
 {
     switch(last_state.channel.mode)
     {
+        case OPMODE_FM:
+        {
+            rtxStatus_t rtxStatus = rtx_getCurrentStatus();
+
+            if(rtxStatus.lsfOk)
+            {
+                gfx_drawSymbol(layout.line2_pos, layout.line2_symbol_font, TEXT_ALIGN_LEFT,
+                               color_white, SYMBOL_CALL_RECEIVED);
+                gfx_drawSymbol(layout.line1_pos, layout.line1_symbol_font, TEXT_ALIGN_LEFT,
+                               color_white, SYMBOL_CALL_MADE);
+                gfx_print(layout.line2_pos, layout.line2_font, TEXT_ALIGN_CENTER,
+                          color_white, "RECEIVING");
+            }
+            else
+            {
+                char *dst = NULL;
+                char *last = NULL;
+                (void)dst;
+
+                if(ui_state->edit_mode)
+                {
+                    dst = ui_state->new_callsign;
+                }
+                else
+                {
+                    if(strnlen(rtxStatus.destination_address, 10) == 0)
+                        dst = "--";
+                    else
+                        dst = rtxStatus.destination_address;
+                }
+
+                if(strnlen(rtxStatus.M17_src, 10) == 0)
+                    last = "LISTENING";
+                else
+                    last = "RECEIVING";
+
+                gfx_print(layout.top_pos, layout.top_font, TEXT_ALIGN_RIGHT,
+                          color_white, "%s", "FM");
+                gfx_print(layout.line2_pos, layout.line2_font, TEXT_ALIGN_CENTER,
+                          color_white, last);
+                if (ui_state->edit_mode)
+                {
+                    // Print Button Info
+                    gfx_print(layout.line5_pos, layout.line5_font, TEXT_ALIGN_LEFT,
+                              color_white, "Cancel");
+                    gfx_print(layout.line5_pos, layout.line5_font, TEXT_ALIGN_RIGHT,
+                              color_white, "Accept");
+                }
+                else
+                {
+                    // Menu
+                    gfx_print(layout.line5_pos, layout.line5_font, TEXT_ALIGN_RIGHT,
+                              color_white, "Menu");
+                }
+                break;
+            }
+            break;
+        }
+
         case OPMODE_M17:
         {
             rtxStatus_t rtxStatus = rtx_getCurrentStatus();
@@ -120,10 +182,13 @@ static void _ui_drawModeInfo(ui_state_t* ui_state)
             {
                 gfx_drawSymbol(layout.line2_pos, layout.line2_symbol_font, TEXT_ALIGN_LEFT,
                                color_white, SYMBOL_CALL_RECEIVED);
+
                 gfx_print(layout.line2_pos, layout.line2_font, TEXT_ALIGN_CENTER,
                           color_white, "%s", rtxStatus.M17_dst);
+
                 gfx_drawSymbol(layout.line1_pos, layout.line1_symbol_font, TEXT_ALIGN_LEFT,
                                color_white, SYMBOL_CALL_MADE);
+
                 gfx_print(layout.line1_pos, layout.line2_font, TEXT_ALIGN_CENTER,
                           color_white, "%s", rtxStatus.M17_src);
 
@@ -192,14 +257,92 @@ static void _ui_drawModeInfo(ui_state_t* ui_state)
                 if(state.totalSMSMessages > 0)
                     gfx_drawSymbol(layout.top_pos, layout.top_symbol_font, TEXT_ALIGN_CENTER,
                                    color_white, SYMBOL_MAIL);
-                // Print CAN
-                gfx_print(layout.top_pos, layout.top_font, TEXT_ALIGN_RIGHT,
-                          color_white, "CAN %02d", state.settings.m17_can);
+                    // Print CAN
+                    gfx_print(layout.top_pos, layout.top_font, TEXT_ALIGN_RIGHT,
+                              color_white, "CAN %02d", state.settings.m17_can);
+                    gfx_print(layout.line2_pos, layout.line2_font, TEXT_ALIGN_CENTER,
+                              color_white, last);
+                    // Print M17 Destination ID on line 2
+                    gfx_print(layout.line3_pos, layout.line3_font, TEXT_ALIGN_CENTER,
+                              color_white, "%s", dst);
+                    if (ui_state->edit_mode)
+                    {
+                        // Print Button Info
+                        gfx_print(layout.line5_pos, layout.line5_font, TEXT_ALIGN_LEFT,
+                                  color_white, "Cancel");
+                        gfx_print(layout.line5_pos, layout.line5_font, TEXT_ALIGN_RIGHT,
+                                  color_white, "Accept");
+                    }
+                    else
+                    {
+                        // Menu
+                        gfx_print(layout.line5_pos, layout.line5_font, TEXT_ALIGN_RIGHT,
+                                  color_white, "Menu");
+                    }
+                    break;
+            }
+            break;
+        }
+
+#if defined(CONFIG_P25)
+        case OPMODE_P25:
+        {
+            rtxStatus_t rtxStatus = rtx_getCurrentStatus();
+
+            if(rtxStatus.lsfOk)
+            {
+                gfx_drawSymbol(layout.line2_pos, layout.line2_symbol_font, TEXT_ALIGN_LEFT,
+                               color_white, SYMBOL_CALL_RECEIVED);
+                gfx_print(layout.line2_pos, layout.line2_font, TEXT_ALIGN_CENTER,
+                          color_white, "%d", rtxStatus.P25_DstId);
+                gfx_drawSymbol(layout.line1_pos, layout.line1_symbol_font, TEXT_ALIGN_LEFT,
+                               color_white, SYMBOL_CALL_MADE);
+                gfx_print(layout.line1_pos, layout.line2_font, TEXT_ALIGN_CENTER,
+                          color_white, "%d", rtxStatus.P25_SrcId);
+            }
+            else
+            {
+                char dst[13];
+                char last[16];
+
+                if(ui_state->edit_srcid)
+                {
+                    sprintf(dst, "%d", (int)last_state.settings.p25_srcId);
+                }
+                else
+                {
+                    if(rtxStatus.P25_DstId == 0)
+                        strcpy(dst, "--");
+                    else
+                        if(host_found)
+                            sprintf(dst, "%d", (int)rtxStatus.P25_DstId);
+                }
+
+                if (host_found)
+                {
+                    if(rtxStatus.P25_SrcId == 0)
+                    {
+                        strcpy(last, "LAST");
+                    }
+                    else
+                        sprintf(last, "%d", (int)rtxStatus.P25_SrcId);
+                }
+                else
+                {
+                    strcpy(last, "Waiting on host");
+                    strcpy(dst, "Receive Only");
+                }
+
+                // Print P25 Source ID
                 gfx_print(layout.line2_pos, layout.line2_font, TEXT_ALIGN_CENTER,
                           color_white, last);
-                // Print M17 Destination ID on line 2
+                // Print P25 Destination ID on line 2
                 gfx_print(layout.line3_pos, layout.line3_font, TEXT_ALIGN_CENTER,
                           color_white, "%s", dst);
+
+                gfx_print(layout.top_pos, layout.top_font, TEXT_ALIGN_RIGHT,
+                          color_white, "%s", "P25");
+
                 if (ui_state->edit_mode)
                 {
                     // Print Button Info
@@ -216,7 +359,109 @@ static void _ui_drawModeInfo(ui_state_t* ui_state)
                 }
                 break;
             }
+            break;
         }
+#endif
+
+#if defined CONFIG_DSTAR
+        case OPMODE_DSTAR:
+        {
+            rtxStatus_t rtxStatus = rtx_getCurrentStatus();
+
+            if(rtxStatus.lsfOk)
+            {
+                gfx_drawSymbol(layout.line2_pos, layout.line2_symbol_font, TEXT_ALIGN_LEFT,
+                               color_white, SYMBOL_CALL_RECEIVED);
+
+                gfx_print(layout.line2_pos, layout.line2_font, TEXT_ALIGN_CENTER,
+                          color_white, "%s", rtxStatus.DSTAR_dst);
+
+                gfx_drawSymbol(layout.line1_pos, layout.line1_symbol_font, TEXT_ALIGN_LEFT,
+                               color_white, SYMBOL_CALL_MADE);
+
+                gfx_print(layout.line1_pos, layout.line2_font, TEXT_ALIGN_CENTER,
+                          color_white, "%s", rtxStatus.DSTAR_src);
+
+                gfx_print(layout.line5_pos, layout.line2_font, TEXT_ALIGN_CENTER,
+                          color_white, "%s", rtxStatus.DSTAR_message);
+
+                if(rtxStatus.DSTAR_link[0] != '\0')
+                {
+                    gfx_drawSymbol(layout.line4_pos, layout.line4_symbol_font, TEXT_ALIGN_LEFT,
+                                   color_white, SYMBOL_ACCESS_POINT);
+
+                    gfx_print(layout.line4_pos, layout.line4_font, TEXT_ALIGN_CENTER,
+                              color_white, "%s", rtxStatus.DSTAR_link);
+                }
+
+                if(rtxStatus.DSTAR_refl[0] != '\0')
+                {
+                    gfx_drawSymbol(layout.line3_pos, layout.line3_symbol_font, TEXT_ALIGN_LEFT,
+                                   color_white, SYMBOL_NETWORK);
+
+                    gfx_print(layout.line3_pos, layout.line3_font, TEXT_ALIGN_CENTER,
+                              color_white, "%s", rtxStatus.DSTAR_refl);
+                }
+            }
+            else
+            {
+                char *dst = NULL;
+                char *last = NULL;
+
+                if(ui_state->edit_mycall)
+                {
+                    dst = last_state.settings.dstar_mycall;
+                }
+                else
+                {
+                    if(strnlen(rtxStatus.destination_address, 10) == 0)
+                        dst = "--";
+                    else
+                        dst = rtxStatus.destination_address;
+                }
+
+                if (host_found)
+                {
+                    if(strnlen(rtxStatus.DSTAR_src, 10) == 0)
+                    {
+                        last = "LAST";
+                    }
+                    else
+                        last = rtxStatus.DSTAR_src;
+                }
+                else
+                    last = "Waiting on host";
+
+                gfx_print(layout.top_pos, layout.top_font, TEXT_ALIGN_RIGHT,
+                          color_white, "%s", "DSTAR");
+
+                // Print DSTAR Destination ID on line 2
+                gfx_print(layout.line2_pos, layout.line2_font, TEXT_ALIGN_CENTER,
+                          color_white, last);
+
+                gfx_print(layout.line3_pos, layout.line3_font, TEXT_ALIGN_CENTER,
+                          color_white, "%s", dst);
+
+                if (ui_state->edit_mode)
+                {
+                    // Print Button Info
+                    gfx_print(layout.line5_pos, layout.line5_font, TEXT_ALIGN_LEFT,
+                              color_white, "Cancel");
+
+                    gfx_print(layout.line5_pos, layout.line5_font, TEXT_ALIGN_RIGHT,
+                              color_white, "Accept");
+                }
+                else
+                {
+                    // Menu
+                    gfx_print(layout.line5_pos, layout.line5_font, TEXT_ALIGN_RIGHT,
+                              color_white, "Menu");
+                }
+                break;
+            }
+            break;
+        }
+#endif
     }
 }
 
