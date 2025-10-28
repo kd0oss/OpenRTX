@@ -471,6 +471,7 @@ dm1801_def += openrtx_def + mk22fn512_def
 ## Module 17
 ##
 mod17_src = ['platform/targets/Module17/platform.c',
+             'openrtx/src/core/arm_math.c',
              'platform/drivers/display/display_Mod17.c',
              'platform/drivers/display/SH110x_Mod17.c',
              'platform/drivers/display/SSD1309_Mod17.c',
@@ -482,11 +483,22 @@ mod17_src = ['platform/targets/Module17/platform.c',
              'platform/drivers/audio/MAX9814_Mod17.cpp',
              'platform/drivers/baseband/MCP4551.c']
 
-mod17_inc = ['platform/targets/Module17']
-mod17_def = {'PLATFORM_MOD17': ''}
+fm_src    = ['openrtx/src/protocols/FM/arm_sin_q31.c',
+             'openrtx/src/protocols/FM/arm_const_structs.c',
+             'openrtx/src/protocols/FM/arm_common_tables.c',
+             'openrtx/src/protocols/FM/FM.cpp',
+             'openrtx/src/protocols/FM/FMCTCSSRX.cpp',
+             'openrtx/src/protocols/FM/FMCTCSSTX.cpp',
+             'openrtx/src/protocols/FM/FMNoiseSquelch.cpp']
 
-mod17_src += openrtx_src + stm32f405_src + ui_src_module17
-mod17_inc += openrtx_inc + stm32f405_inc
+mod17_inc = ['platform/targets/Module17']
+fm_inc = ['openrtx/include/protocols/FM']
+fm_audio_src = ['openrtx/src/core/fm_audio_module17.cpp']
+
+mod17_def = {'PLATFORM_MOD17': '', 'ARM_MATH_CM4': ''}
+
+mod17_src += openrtx_src + stm32f405_src + ui_src_module17 + fm_src + fm_audio_src
+mod17_inc += openrtx_inc + stm32f405_inc + fm_inc
 mod17_def += openrtx_def + stm32f405_def
 
 ##
