@@ -23,7 +23,11 @@
 #define UI_DEFAULT_H
 
 #include <stdbool.h>
+#if !defined(REPEATER) && !defined(HOTSPOT)
 #include <state.h>
+#else
+#include <state_rpt.h>
+#endif
 #include <graphics.h>
 #include <interfaces/keyboard.h>
 #include <stdint.h>
@@ -53,6 +57,7 @@ enum uiScreen
     MENU_CONTACTS,
     MENU_GPS,
     MENU_SETTINGS,
+    MENU_MODE,
     MENU_BACKUP_RESTORE,
     MENU_BACKUP,
     MENU_RESTORE,
@@ -64,7 +69,13 @@ enum uiScreen
     SETTINGS_DISPLAY,
     SETTINGS_GPS,
     SETTINGS_RADIO,
+#ifdef NO_FMMACROMENU
+    SETTINGS_FM,
+#endif
     SETTINGS_M17,
+#if defined(CONFIG_P25)
+    SETTINGS_P25,
+#endif
     SETTINGS_ACCESSIBILITY,
     SETTINGS_RESET2DEFAULTS,
     LOW_BAT
@@ -87,6 +98,7 @@ enum menuItems
     M_GPS,
 #endif
     M_SETTINGS,
+    M_MODE,
     M_INFO,
     M_ABOUT
 };
@@ -101,11 +113,29 @@ enum settingsItems
     S_GPS,
 #endif
     S_RADIO,
+#ifdef NO_FMMACROMENU
+    S_FM,
+#endif
 #ifdef CONFIG_M17
     S_M17,
 #endif
+#if defined CONFIG_P25
+    S_P25,
+#endif
     S_ACCESSIBILITY,
     S_RESET2DEFAULTS,
+};
+
+enum modeItems
+{
+    M17
+#if defined(CONFIG_DMR)
+	,DMR
+#endif
+    ,FM
+#if defined(CONFIG_P25)
+    ,P25
+#endif
 };
 
 enum backupRestoreItems
@@ -148,6 +178,13 @@ enum settingsRadioItems
     R_STEP,
 };
 
+enum settingsFMItems
+{
+    FM_CTCSSRX = 0,
+    FM_CTCSSTX,
+    FM_BW
+};
+
 enum menuM17SMSItems
 {
     M17_SMSSEND = 0,
@@ -163,6 +200,19 @@ enum settingsM17Items
     M17_CAN,
     M17_CAN_RX
 };
+
+#ifdef CONFIG_P25
+enum p25Items
+{
+    M_SRCID = 0,
+    M_DSTID,
+    M_NAC,
+    M_P25RXLEVEL,
+    M_P25TXLEVEL,
+	M_RXINVERT,
+	M_TXINVERT
+};
+#endif
 
 /**
  * Struct containing a set of positions and sizes that get
@@ -225,6 +275,14 @@ typedef struct ui_state_t
     bool view_sms;
     bool useT9;
     bool input_locked;
+#if defined(CONFIG_P25)
+    bool edit_srcid;
+    bool edit_dstid;
+    bool edit_nac;
+    bool edit_rx_level;
+    bool edit_tx_level;
+    bool edit_invert;
+#endif
     // Variables used for VFO input
     uint8_t input_number;
     uint8_t input_position;
@@ -256,25 +314,39 @@ extern state_t last_state;
 extern bool    macro_latched;
 extern const char *menu_items[];
 extern const char *settings_items[];
+extern const char *mode_items[];
 extern const char *display_items[];
 extern const char *settings_gps_items[];
 extern const char *settings_radio_items[];
+extern const char *settings_fm_items[];
 extern const char *menu_m17sms_items[];
 extern const char *settings_m17_items[];
-extern const char * settings_accessibility_items[];
+extern const char *settings_accessibility_items[];
+extern const char *mode_items[];
+#if defined(CONFIG_P25)
+extern const char *p25_items[];
+#endif
 
 extern const char *backup_restore_items[];
 extern const char *info_items[];
 extern const char *authors[];
+
+extern uint8_t radio_mode;
 extern const uint8_t menu_num;
+extern const uint8_t mode_num;
 extern const uint8_t settings_num;
+extern const uint8_t mode_sel_num;
 extern const uint8_t display_num;
 extern const uint8_t settings_gps_num;
 extern const uint8_t settings_radio_num;
+extern const uint8_t settings_fm_num;
 extern const uint8_t menu_m17sms_num;
 extern const uint8_t settings_m17_num;
 extern const uint8_t settings_accessibility_num;
 extern const uint8_t backup_restore_num;
+#if defined(CONFIG_P25)
+extern const uint8_t p25_num;
+#endif
 extern const uint8_t info_num;
 extern const uint8_t author_num;
 extern const color_t color_black;
