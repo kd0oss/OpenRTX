@@ -103,6 +103,10 @@ void *ui_threadFunc(void *arg)
             rtx_cfg.canRxEn = state.settings.m17_can_rx;
             strncpy(rtx_cfg.source_address,      state.settings.callsign, 10);
             strncpy(rtx_cfg.destination_address, state.settings.m17_dest, 10);
+#if defined(CONFIG_P25)
+            rtx_cfg.P25_SrcId =                  state.settings.p25_srcId;
+            rtx_cfg.P25_DstId =                  state.settings.p25_dstId;
+#endif
 
             pthread_mutex_unlock(&rtx_mutex);
 
