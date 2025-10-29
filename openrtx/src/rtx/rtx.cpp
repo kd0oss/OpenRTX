@@ -26,6 +26,12 @@
 #include <rtx.h>
 #include <OpMode_FM.hpp>
 #include <OpMode_M17.hpp>
+#if defined(CONFIG_DSTAR)
+#include <OpMode_DSTAR.hpp>
+#endif
+#if defined(CONFIG_P25)
+#include <OpMode_P25.hpp>
+#endif
 
 static pthread_mutex_t   *cfgMutex;     // Mutex for incoming config messages
 static const rtxStatus_t *newCnf;       // Pointer for incoming config messages
@@ -35,11 +41,25 @@ static bool               reinitFilter; // Flag for RSSI filter re-initialisatio
 
 static OpMode  *currMode;               // Pointer to currently active opMode handler
 static OpMode     noMode;               // Empty opMode handler for opmode::NONE
+#ifndef USE_DYNAMIC_ALLOC
 static OpMode_FM  fmMode;               // FM mode handler
 #ifdef CONFIG_M17
 static OpMode_M17 m17Mode;              // M17 mode handler
 #endif
+#ifdef CONFIG_DSTAR
+static OpMode_DSTAR dstarMode;         // DSTAR mode handler
+#endif
+#ifdef CONFIG_P25
+static OpMode_P25   p25Mode;           // P25 mode handler
+#endif
+#endif
 
+#ifdef PLATFORM_MOD17
+#if defined(CONFIG_DSTAR) || defined(CONFIG_P25)
+#include <drivers/usb_vcom.h>
+bool host_found = false;
+#endif
+#endif
 
 void rtx_init(pthread_mutex_t *m)
 {
@@ -50,25 +70,36 @@ void rtx_init(pthread_mutex_t *m)
     /*
      * Default initialisation for rtx status
      */
-    rtxStatus.opMode        = OPMODE_NONE;
-    rtxStatus.bandwidth     = BW_25;
-    rtxStatus.txDisable     = 0;
-    rtxStatus.opStatus      = OFF;
-    rtxStatus.rxFrequency   = 430000000;
-    rtxStatus.txFrequency   = 430000000;
-    rtxStatus.txPower       = 0.0f;
-    rtxStatus.sqlLevel      = 1;
-    rtxStatus.rxToneEn      = 0;
-    rtxStatus.rxTone        = 0;
-    rtxStatus.txToneEn      = 0;
-    rtxStatus.txTone        = 0;
-    rtxStatus.invertRxPhase = false;
-    rtxStatus.lsfOk         = false;
-    rtxStatus.M17_src[0]    = '\0';
-    rtxStatus.M17_dst[0]    = '\0';
-    rtxStatus.M17_link[0]   = '\0';
-    rtxStatus.M17_refl[0]   = '\0';
+    rtxStatus.opMode           = OPMODE_NONE;
+    rtxStatus.bandwidth        = BW_25;
+    rtxStatus.txDisable        = 0;
+    rtxStatus.opStatus         = OFF;
+    rtxStatus.rxFrequency      = 430000000;
+    rtxStatus.txFrequency      = 430000000;
+    rtxStatus.txPower          = 0.0f;
+    rtxStatus.sqlLevel         = 1;
+    rtxStatus.rxToneEn         = 0;
+    rtxStatus.rxTone           = 0;
+    rtxStatus.txToneEn         = 0;
+    rtxStatus.txTone           = 0;
+    rtxStatus.invertRxPhase    = false;
+    rtxStatus.lsfOk            = false;
+    rtxStatus.M17_src[0]       = '\0';
+    rtxStatus.M17_dst[0]       = '\0';
+    rtxStatus.M17_link[0]      = '\0';
+    rtxStatus.M17_refl[0]      = '\0';
     rtxStatus.M17_Meta_Text[0] = '\0';
+#if defined(CONFIG_DSTAR)
+    rtxStatus.DSTAR_src[0]     = '\0';
+    rtxStatus.DSTAR_dst[0]     = '\0';
+    rtxStatus.DSTAR_link[0]    = '\0';
+    rtxStatus.DSTAR_refl[0]    = '\0';
+    rtxStatus.DSTAR_message[0] = '\0';
+#endif
+#if defined(CONFIG_P25)
+    rtxStatus.P25_SrcId        = 0;
+    rtxStatus.P25_DstId        = 0;
+#endif
     currMode = &noMode;
 
     /*
@@ -138,6 +169,9 @@ void rtx_task()
             rtxStatus.txToneEn = 0;
             rtxStatus.rxToneEn = 0;
         }
+#if defined(PLATFORM_MOD17)
+        currMode->reset();
+#endif
 
         /*
          * Handle change of opMode:
@@ -157,10 +191,53 @@ void rtx_task()
             switch(rtxStatus.opMode)
             {
                 case OPMODE_NONE: currMode = &noMode;  break;
-                case OPMODE_FM:   currMode = &fmMode;  break;
-                #ifdef CONFIG_M17
-                case OPMODE_M17:  currMode = &m17Mode; break;
-                #endif
+#ifdef USE_DYNAMIC_ALLOC
+                case OPMODE_FM:
+                    if(currMode->getID() != OPMODE_NONE)
+                        delete currMode;
+            currMode = new OpMode_FM();
+            break;
+#ifdef CONFIG_M17
+                case OPMODE_M17:
+                    if(currMode->getID() != OPMODE_NONE)
+                        delete currMode;
+            currMode = new OpMode_M17();
+            break;
+#endif
+#ifdef CONFIG_DSTAR
+                case OPMODE_DSTAR:
+                    if(currMode->getID() != OPMODE_NONE)
+                        delete currMode;
+            currMode = new OpMode_DSTAR();
+            break;
+#endif
+#ifdef CONFIG_P25
+                case OPMODE_P25:
+                    if(currMode->getID() != OPMODE_NONE)
+                        delete currMode;
+            currMode = new OpMode_P25();
+            break;
+#endif
+#else
+                case OPMODE_FM:
+                    currMode = &fmMode;
+                    break;
+#ifdef CONFIG_M17
+                case OPMODE_M17:
+                    currMode = &m17Mode;
+                    break;
+#endif
+#ifdef CONFIG_DSTAR
+                case OPMODE_DSTAR:
+                    currMode = &dstarMode;
+                    break;
+#endif
+#ifdef CONFIG_P25
+                case OPMODE_P25:
+                    currMode = &p25Mode;
+                    break;
+#endif
+#endif
                 default:   currMode = &noMode;
             }
 
