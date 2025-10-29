@@ -66,6 +66,16 @@ typedef struct
     bool    m17_sms_match_call;   // SMS match callsign to receive
     char    m17_dest[10];         // M17 destination
     char    M17_meta_text[53];    // M17 Meta Text to send
+    #if defined(CONFIG_P25)
+    uint8_t  p25_rx_level;        // P25 RX BB level
+    uint8_t  p25_tx_level;        // P25 TX BB level
+    uint32_t p25_srcId;           // P25 Source ID (DMR ID)
+    uint32_t p25_dstId;           // P25 Destination ID (DMR ID or TG)
+    uint16_t p25_nac;             // P25 NAC
+    uint8_t  p25_rx_invert  : 1,  // P25 RX signal invert
+             p25_tx_invert  : 1,  // P25 TX signal invert
+			 _notused       : 6;
+    #endif
 }
 __attribute__((packed)) settings_t;
 
@@ -93,6 +103,16 @@ static const settings_t default_settings =
     true,                         // SMS match callsign
     "",                            // Empty M17 destination
     "OpenRTX"                     // Default M17 meta text
+    #if defined(CONFIG_P25)
+	,100                          // Default RX BB level
+	,160                          // Default TX BB level
+    ,0                            // Empty P25 Source ID
+    ,0                            // Empty P25 Destination ID
+    ,293                          // Default P25 NAC
+	,1                            // P25 RX invert
+	,0                            // P25 TX invert
+	,0
+    #endif
 };
 
 #endif /* SETTINGS_H */
