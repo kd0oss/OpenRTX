@@ -26,9 +26,6 @@
 #include <rtx.h>
 #include <OpMode_FM.hpp>
 #include <OpMode_M17.hpp>
-#if defined(CONFIG_DSTAR)
-#include <OpMode_DSTAR.hpp>
-#endif
 #if defined(CONFIG_P25)
 #include <OpMode_P25.hpp>
 #endif
@@ -46,18 +43,8 @@ static OpMode_FM  fmMode;               // FM mode handler
 #ifdef CONFIG_M17
 static OpMode_M17 m17Mode;              // M17 mode handler
 #endif
-#ifdef CONFIG_DSTAR
-static OpMode_DSTAR dstarMode;         // DSTAR mode handler
-#endif
 #ifdef CONFIG_P25
 static OpMode_P25   p25Mode;           // P25 mode handler
-#endif
-#endif
-
-#ifdef PLATFORM_MOD17
-#if defined(CONFIG_DSTAR) || defined(CONFIG_P25)
-#include <drivers/usb_vcom.h>
-bool host_found = false;
 #endif
 #endif
 
@@ -89,13 +76,6 @@ void rtx_init(pthread_mutex_t *m)
     rtxStatus.M17_link[0]      = '\0';
     rtxStatus.M17_refl[0]      = '\0';
     rtxStatus.M17_Meta_Text[0] = '\0';
-#if defined(CONFIG_DSTAR)
-    rtxStatus.DSTAR_src[0]     = '\0';
-    rtxStatus.DSTAR_dst[0]     = '\0';
-    rtxStatus.DSTAR_link[0]    = '\0';
-    rtxStatus.DSTAR_refl[0]    = '\0';
-    rtxStatus.DSTAR_message[0] = '\0';
-#endif
 #if defined(CONFIG_P25)
     rtxStatus.P25_SrcId        = 0;
     rtxStatus.P25_DstId        = 0;
@@ -204,13 +184,6 @@ void rtx_task()
             currMode = new OpMode_M17();
             break;
 #endif
-#ifdef CONFIG_DSTAR
-                case OPMODE_DSTAR:
-                    if(currMode->getID() != OPMODE_NONE)
-                        delete currMode;
-            currMode = new OpMode_DSTAR();
-            break;
-#endif
 #ifdef CONFIG_P25
                 case OPMODE_P25:
                     if(currMode->getID() != OPMODE_NONE)
@@ -225,11 +198,6 @@ void rtx_task()
 #ifdef CONFIG_M17
                 case OPMODE_M17:
                     currMode = &m17Mode;
-                    break;
-#endif
-#ifdef CONFIG_DSTAR
-                case OPMODE_DSTAR:
-                    currMode = &dstarMode;
                     break;
 #endif
 #ifdef CONFIG_P25
