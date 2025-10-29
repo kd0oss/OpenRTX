@@ -23,11 +23,7 @@
 #define UI_DEFAULT_H
 
 #include <stdbool.h>
-#if !defined(REPEATER) && !defined(HOTSPOT)
 #include <state.h>
-#else
-#include <state_rpt.h>
-#endif
 #include <graphics.h>
 #include <interfaces/keyboard.h>
 #include <stdint.h>
