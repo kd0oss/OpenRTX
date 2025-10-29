@@ -69,16 +69,6 @@ typedef struct
     char     M17_link[10];             /**  M17 LSF traffic originator   */
     char     M17_refl[10];             /**  M17 LSF reflector module     */
     char     M17_Meta_Text[53];        /**< M17 Meta Text                */
-#if defined(CONFIG_DSTAR)
-    char     DSTAR_dst[9];             /**  DSTAR LSF destination        */
-    char     DSTAR_src[9];             /**  DSTAR LSF source             */
-    char     DSTAR_link[10];           /**  DSTAR LSF traffic originator */
-    char     DSTAR_rpt1[9];            /**  DSTAR LSF RPT1 Call          */
-    char     DSTAR_rpt2[9];            /**  DSTAR LSF RPT2 Call          */
-    char     DSTAR_sufx[5];            /**  DSTAR LSF Suffix             */
-    char     DSTAR_refl[10];           /**  DSTAR LSF reflector module   */
-    char     DSTAR_message[22];        /**  DSTAR LSF slowspeed data     */
-#endif
 #if defined(CONFIG_P25)
     uint32_t P25_SrcId;                /**< P25 Source ID (DMR ID)       */
     uint32_t P25_DstId;                /**< P25 Destination ID (DMR ID/TG)*/
@@ -104,8 +94,7 @@ enum opmode
     OPMODE_FM    = 1,        /**< Analog FM          */
     OPMODE_DMR   = 2,        /**< DMR                */
     OPMODE_M17   = 3,        /**< M17                */
-    OPMODE_DSTAR = 4,        /**< DSTAR              */
-    OPMODE_P25   = 5         /**< P25                */
+    OPMODE_P25   = 4         /**< P25                */
 };
 
 enum packetType
