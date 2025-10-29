@@ -110,6 +110,18 @@ void platform_init()
     }
 
     /* Set defaults for calibration */
+    mod17CalData.ctcssrx_freq    = 0;
+    mod17CalData.ctcsstx_freq    = 0;
+    mod17CalData.ctcssrx_thrshhi = 60;
+    mod17CalData.ctcssrx_thrshlo = 30;
+    mod17CalData.ctcsstx_level   = 175;
+    mod17CalData.maxdev          = 90;
+    mod17CalData.noisesq_on      = 0;
+    mod17CalData.noisesq_thrshhi = 15;
+    mod17CalData.noisesq_thrshlo = 9;
+    mod17CalData.fm_rx_level     = 76;
+    mod17CalData.fm_tx_level     = 100;
+
     mod17CalData.tx_wiper     = 0x080;
     mod17CalData.rx_wiper     = 0x080;
     mod17CalData.bb_tx_invert = 0;
