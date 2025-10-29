@@ -65,6 +65,15 @@ const char *display_timer_values[] =
     "45 min",
     "1 hour"
 };
+
+const char *mode_values[] =
+{
+    "M17"
+	,"DMR"
+    ,"FM"
+    ,"P25"
+};
+
 void _ui_reset_menu_anouncement_tracking()
  {
      *priorSelectedMenuName='\0';
@@ -218,7 +227,11 @@ void _ui_drawMenuListValue(ui_state_t* ui_state, uint8_t selected,
                 // If we are in edit mode, draw a hollow rectangle
                 text_color = color_black;
                 bool full_rect = true;
-                if(ui_state->edit_mode || ui_state->edit_message || ui_state->edit_sms)
+                if(ui_state->edit_mode || ui_state->edit_message || ui_state->edit_sms
+#if defined(CONFIG_P25)
+                		|| ui_state->edit_rx_level || ui_state->edit_tx_level || ui_state->edit_invert
+#endif
+						)
                 {
                     text_color = color_white;
                     full_rect = false;
@@ -231,7 +244,12 @@ void _ui_drawMenuListValue(ui_state_t* ui_state, uint8_t selected,
                 // E.g. when pressing Enter on Display Brightness etc.
                 if (editModeChanged)
                     priorSelectedMenuName[0]='\0';
-                if ((!ui_state->edit_mode && !ui_state->edit_message && !ui_state->edit_sms) || editModeChanged)
+                if ((!ui_state->edit_mode && !ui_state->edit_message && !ui_state->edit_sms)
+#if defined(CONFIG_P25)
+                    || ui_state->edit_srcid || ui_state->edit_dstid || ui_state->edit_nac
+					|| ui_state->edit_rx_level || ui_state->edit_tx_level || ui_state->edit_invert
+#endif
+					 || editModeChanged)
                 {// If in edit mode, only want to speak the char being entered,,
             //not repeat the entire display.
                     announceMenuItemIfNeeded(entry_buf, value_buf,
@@ -430,6 +448,63 @@ int _ui_getRadioValueName(char *buf, uint8_t max_len, uint8_t index)
     return 0;
 }
 
+int _ui_getFMEntryName(char *buf, uint8_t max_len, uint8_t index)
+{
+    if(index >= settings_fm_num) return -1;
+    snprintf(buf, max_len, "%s", settings_fm_items[index]);
+    return 0;
+}
+
+int _ui_getFMValueName(char *buf, uint8_t max_len, uint8_t index)
+{
+    if(index >= settings_fm_num)
+        return -1;
+
+    uint16_t tone;
+    switch(index)
+    {
+        case FM_CTCSSRX:
+            tone = ctcss_tone[last_state.channel.fm.rxTone];
+            if(last_state.channel.fm.rxTone == 50 || !last_state.channel.fm.rxToneEn)
+                sniprintf(buf, max_len, "OFF");
+            else
+                sniprintf(buf, max_len, "%d.%d", (tone / 10), (tone % 10));
+        break;
+
+        case FM_CTCSSTX:
+            tone = ctcss_tone[last_state.channel.fm.txTone];
+            if(last_state.channel.fm.txTone == 50 || !last_state.channel.fm.txToneEn)
+                sniprintf(buf, max_len, "OFF");
+            else
+                sniprintf(buf, max_len, "%d.%d", (tone / 10), (tone % 10));
+        break;
+
+        case FM_BW:
+            if(last_state.channel.bandwidth == BW_12_5)
+                sniprintf(buf, max_len, "12.5");
+        else
+            sniprintf(buf, max_len, "25");
+        break;
+    }
+    return 0;
+}
+
+int _ui_getModeEntryName(char *buf, uint8_t max_len, uint8_t index)
+{
+    if(index >= mode_num) return -1;
+    snprintf(buf, max_len, "%s", mode_items[index]);
+    return 0;
+}
+
+int _ui_getModeValueName(char *buf, uint8_t max_len, uint8_t index)
+{
+	if(index >= mode_num) return -1;
+
+	snprintf(buf, max_len, "%s", mode_values[radio_mode]);
+
+	return 0;
+}
+
 #ifdef CONFIG_M17
 int _ui_getSMSEntryName(char *buf, uint8_t max_len, uint8_t index)
 {
@@ -500,11 +575,57 @@ int _ui_getM17ValueName(char *buf, uint8_t max_len, uint8_t index)
         case M17_CAN:
             sniprintf(buf, max_len, "%d", last_state.settings.m17_can);
             break;
+
         case M17_CAN_RX:
             sniprintf(buf, max_len, "%s", (last_state.settings.m17_can_rx) ?
                                                            currentLanguage->on :
                                                            currentLanguage->off);
             break;
+    }
+
+    return 0;
+}
+#endif
+
+#if defined(CONFIG_P25)
+int _ui_getP25EntryName(char *buf, uint8_t max_len, uint8_t index)
+{
+    if(index >= p25_num) return -1;
+    snprintf(buf, max_len, "%s", p25_items[index]);
+    return 0;
+}
+
+int _ui_getP25ValueName(char *buf, uint8_t max_len, uint8_t index)
+{
+    if(index >= p25_num) return -1;
+
+    switch(index)
+    {
+        case M_SRCID:
+            snprintf(buf, max_len, "%d", (int)last_state.settings.p25_srcId);
+            return 0;
+        case M_DSTID:
+            snprintf(buf, max_len, "%d", (int)last_state.settings.p25_dstId);
+            return 0;
+        case M_NAC:
+            snprintf(buf, max_len, "%d", (int)last_state.settings.p25_nac);
+            return 0;
+        case M_P25RXLEVEL:
+            snprintf(buf, max_len, "%d", (int)last_state.settings.p25_rx_level);
+            return 0;
+        case M_P25TXLEVEL:
+            snprintf(buf, max_len, "%d", (int)last_state.settings.p25_tx_level);
+            return 0;
+        case M_RXINVERT:
+            snprintf(buf, max_len, "%s", (last_state.settings.p25_rx_invert) ?
+            		                                          currentLanguage->on :
+															  currentLanguage->off);
+            return 0;
+        case M_TXINVERT:
+            snprintf(buf, max_len, "%s", (last_state.settings.p25_tx_invert) ?
+            		                                          currentLanguage->on :
+															  currentLanguage->off);
+            return 0;
     }
 
     return 0;
@@ -709,10 +830,7 @@ void _ui_drawMenuGPS()
               color_white, currentLanguage->gps);
     point_t fix_pos = {layout.line2_pos.x, CONFIG_SCREEN_HEIGHT * 2 / 5};
     // Print GPS status, if no fix, hide details
-    if(!last_state.gpsDetected)
-        gfx_print(fix_pos, layout.line3_large_font, TEXT_ALIGN_CENTER,
-                  color_white, currentLanguage->noGps);
-    else if(!last_state.settings.gps_enabled)
+    if(!last_state.settings.gps_enabled)
         gfx_print(fix_pos, layout.line3_large_font, TEXT_ALIGN_CENTER,
                   color_white, currentLanguage->gpsOff);
     else if (last_state.gps_data.fix_quality == 0)
@@ -801,6 +919,16 @@ void _ui_drawMenuGPS()
                      last_state.gps_data.active_sats);
 }
 #endif
+
+void _ui_drawMenuMode(ui_state_t* ui_state)
+{
+    gfx_clearScreen();
+    // Print "Mode" on top bar
+    gfx_print(layout.top_pos, layout.top_font, TEXT_ALIGN_CENTER,
+              color_white, "Mode");
+    // Print menu entries
+    _ui_drawMenuListValue(ui_state, ui_state->menu_selected, _ui_getModeEntryName, _ui_getModeValueName);
+}
 
 void _ui_drawMenuSettings(ui_state_t* ui_state)
 {
@@ -1004,6 +1132,16 @@ void _ui_drawSettingsTimeDateSet(ui_state_t* ui_state)
 }
 #endif
 
+void _ui_drawSettingsFM(ui_state_t* ui_state)
+{
+    gfx_clearScreen();
+    // Print "FM Settings" on top bar
+    gfx_print(layout.top_pos, layout.top_font, TEXT_ALIGN_CENTER,
+              color_white, currentLanguage->fmsettings);
+
+    _ui_drawMenuListValue(ui_state, ui_state->menu_selected, _ui_getFMEntryName,
+                          _ui_getFMValueName);
+}
 #ifdef CONFIG_M17
 void _ui_drawSMSMenu(ui_state_t* ui_state)
 {
@@ -1213,6 +1351,56 @@ void _ui_drawSettingsM17(ui_state_t* ui_state)
 }
 #endif
 
+#if defined(CONFIG_P25)
+void _ui_drawSettingsP25(ui_state_t* ui_state)
+{
+    gfx_clearScreen();
+    gfx_print(layout.top_pos, layout.top_font, TEXT_ALIGN_CENTER,
+              color_white, "P25 Settings");
+
+    if(ui_state->edit_srcid)
+    {
+        gfx_printLine(1, 4, layout.top_h, CONFIG_SCREEN_HEIGHT - layout.bottom_h,
+                      layout.horizontal_pad, layout.menu_font,
+                      TEXT_ALIGN_LEFT, color_white, "DMR Id:");
+
+        // Print P25 Source Id being typed
+        gfx_printLine(1, 1, layout.top_h, CONFIG_SCREEN_HEIGHT - layout.bottom_h,
+                      layout.horizontal_pad, layout.input_font,
+                      TEXT_ALIGN_CENTER, color_white, ui_state->new_callsign);
+    }
+    else
+        if(ui_state->edit_dstid)
+        {
+            gfx_printLine(1, 4, layout.top_h, CONFIG_SCREEN_HEIGHT - layout.bottom_h,
+                          layout.horizontal_pad, layout.menu_font,
+                          TEXT_ALIGN_LEFT, color_white, "Dest Id:");
+
+            // Print P25 Destination Id being typed
+            gfx_printLine(1, 1, layout.top_h, CONFIG_SCREEN_HEIGHT - layout.bottom_h,
+                          layout.horizontal_pad, layout.input_font,
+                          TEXT_ALIGN_CENTER, color_white, ui_state->new_callsign);
+        }
+        else
+            if(ui_state->edit_nac)
+            {
+                gfx_printLine(1, 4, layout.top_h, CONFIG_SCREEN_HEIGHT - layout.bottom_h,
+                              layout.horizontal_pad, layout.menu_font,
+                              TEXT_ALIGN_LEFT, color_white, "NAC:");
+
+                // Print P25 NAC Id being typed
+                gfx_printLine(1, 1, layout.top_h, CONFIG_SCREEN_HEIGHT - layout.bottom_h,
+                              layout.horizontal_pad, layout.input_font,
+                              TEXT_ALIGN_CENTER, color_white, ui_state->new_callsign);
+            }
+            else
+            {
+                _ui_drawMenuListValue(ui_state, ui_state->menu_selected, _ui_getP25EntryName,
+                                      _ui_getP25ValueName);
+            }
+}
+#endif
+
 void _ui_drawSettingsAccessibility(ui_state_t* ui_state)
 {
     gfx_clearScreen();
@@ -1335,6 +1523,7 @@ bool _ui_drawMacroMenu(ui_state_t* ui_state)
     // First row
     if (last_state.channel.mode == OPMODE_FM)
     {
+#ifndef TEMP
 /*
  * If we have a keyboard installed draw all numbers, otherwise draw only the
  * currently selected number.
@@ -1356,9 +1545,28 @@ bool _ui_drawMacroMenu(ui_state_t* ui_state)
                   yellow_fab413, "2");
         gfx_print(layout.line1_pos, layout.top_font, TEXT_ALIGN_CENTER,
                   color_white,   "       T+");
+#else
+        gfx_print(layout.line1_pos, layout.top_font, TEXT_ALIGN_LEFT,
+                  yellow_fab413, "1");
+        gfx_print(layout.line1_pos, layout.top_font, TEXT_ALIGN_LEFT,
+                  color_white, "           ");
+        gfx_print(layout.line1_pos, layout.top_font, TEXT_ALIGN_CENTER,
+                  yellow_fab413, "2");
+#endif
     }
 #ifdef CONFIG_M17
     else if (last_state.channel.mode == OPMODE_M17)
+    {
+        gfx_print(layout.line1_pos, layout.top_font, TEXT_ALIGN_LEFT,
+                  yellow_fab413, "1");
+        gfx_print(layout.line1_pos, layout.top_font, TEXT_ALIGN_LEFT,
+                  color_white, "          ");
+        gfx_print(layout.line1_pos, layout.top_font, TEXT_ALIGN_CENTER,
+                  yellow_fab413, "2");
+    }
+#endif
+#ifdef CONFIG_P25
+    else if (last_state.channel.mode == OPMODE_P25)
     {
         gfx_print(layout.line1_pos, layout.top_font, TEXT_ALIGN_LEFT,
                   yellow_fab413, "1");
@@ -1412,6 +1620,7 @@ bool _ui_drawMacroMenu(ui_state_t* ui_state)
 
     if (last_state.channel.mode == OPMODE_FM)
     {
+//#ifndef NO_FMMACROMENU
         char bw_str[12] = { 0 };
         switch (last_state.channel.bandwidth)
         {
@@ -1425,6 +1634,10 @@ bool _ui_drawMacroMenu(ui_state_t* ui_state)
 
         gfx_print(pos_2, layout.top_font, TEXT_ALIGN_LEFT,
                   color_white, bw_str);
+//#else
+//        gfx_print(pos_2, layout.top_font, TEXT_ALIGN_LEFT,
+//                  color_white, "       ");
+//#endif
     }
 #ifdef CONFIG_M17
     else if (last_state.channel.mode == OPMODE_M17)
@@ -1446,13 +1659,24 @@ bool _ui_drawMacroMenu(ui_state_t* ui_state)
     {
         case OPMODE_FM:
         sniprintf(mode_str, 12,"         FM");
+        radio_mode = 2;
         break;
+#ifdef CONFIG_DMR
         case OPMODE_DMR:
         sniprintf(mode_str, 12,"        DMR");
+        radio_mode = 1;
         break;
+#endif
+#ifdef CONFIG_P25
+        case OPMODE_P25:
+        sniprintf(mode_str, 12,"        P25");
+        radio_mode = 3;
+        break;
+#endif
 #ifdef CONFIG_M17
         case OPMODE_M17:
         sniprintf(mode_str, 12,"        M17");
+        radio_mode = 0;
         break;
 #endif
     }

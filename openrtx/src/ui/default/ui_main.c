@@ -31,7 +31,7 @@
 #include <ui/ui_strings.h>
 #include <utils.h>
 
-
+#if defined(CONFIG_METATEXT)
 static char message[66];
 static bool scrollStarted = false;
 
@@ -83,6 +83,7 @@ bool _ui_scrollString(char *string, bool reset)
 
     return true;
 }
+#endif
 
 void _ui_drawMainBackground()
 {
@@ -154,7 +155,9 @@ void _ui_drawBankChannel()
 void _ui_drawModeInfo(ui_state_t* ui_state)
 {
     char bw_str[8] = { 0 };
+#ifndef NO_FMMACROMENU
     char encdec_str[9] = { 0 };
+#endif
 
     switch(last_state.channel.mode)
     {
@@ -166,10 +169,11 @@ void _ui_drawModeInfo(ui_state_t* ui_state)
             else if(last_state.channel.bandwidth == BW_25)
                 sniprintf(bw_str, 8, "FM");
 
-            // Get encdec string
+        // Get encdec string
             bool tone_tx_enable = last_state.channel.fm.txToneEn;
             bool tone_rx_enable = last_state.channel.fm.rxToneEn;
 
+#ifndef NO_FMMACROMENU
             if (tone_tx_enable && tone_rx_enable)
                 sniprintf(encdec_str, 9, "ED");
             else if (tone_tx_enable && !tone_rx_enable)
@@ -178,29 +182,51 @@ void _ui_drawModeInfo(ui_state_t* ui_state)
                 sniprintf(encdec_str, 9, " D");
             else
                 sniprintf(encdec_str, 9, "  ");
+#endif
 
             // Print Bandwidth, Tone and encdec info
             if (tone_tx_enable || tone_rx_enable)
             {
+#ifdef NO_FMMACROMENU
+                if(last_state.channel.fm.txToneEn)
+                {
+                    uint16_t toneTx = ctcss_tone[last_state.channel.fm.txTone];
+                    gfx_print(layout.line2_pos, layout.line2_font, TEXT_ALIGN_CENTER,
+                              color_white, "%s %d.%d E", bw_str, (toneTx / 10),
+                              (toneTx % 10));
+                }
+                if(last_state.channel.fm.rxToneEn)
+                {
+                    uint16_t toneRx = ctcss_tone[last_state.channel.fm.rxTone];
+                    gfx_print(layout.line1_pos, layout.line2_font, TEXT_ALIGN_CENTER,
+                              color_white, "%s %d.%d D", bw_str, (toneRx / 10),
+                              (toneRx % 10));
+                }
+#else
                 uint16_t tone = ctcss_tone[last_state.channel.fm.txTone];
                 gfx_print(layout.line2_pos, layout.line2_font, TEXT_ALIGN_CENTER,
                           color_white, "%s %d.%d %s", bw_str, (tone / 10),
                           (tone % 10), encdec_str);
+#endif
             }
             else
             {
                 gfx_print(layout.line2_pos, layout.line2_font, TEXT_ALIGN_CENTER,
                           color_white, "%s", bw_str );
             }
+#ifdef PLATFORM_CS7000P
+                gfx_print(layout.top_pos, layout.top_font, TEXT_ALIGN_CENTER,
+                          yellow_fab413, "%s", "FM");
+#endif
             break;
 
         case OPMODE_DMR:
             // Print talkgroup
             gfx_print(layout.line2_pos, layout.line2_font, TEXT_ALIGN_CENTER,
-                    color_white, "DMR TG%s", "");
+                    yellow_fab413, "DMR TG%s", "");
             break;
 
-        #ifdef CONFIG_M17
+#ifdef CONFIG_M17
         case OPMODE_M17:
         {
             // Print M17 Destination ID on line 3 of 3
@@ -222,6 +248,7 @@ void _ui_drawModeInfo(ui_state_t* ui_state)
                 gfx_print(layout.line1_pos, layout.line2_font, TEXT_ALIGN_CENTER,
                           color_white, "%s", rtxStatus.M17_src);
 
+#if defined(CONFIG_METATEXT)
                 // metatext available
                 if((strlen(rtxStatus.M17_Meta_Text) > 13) ||
                     (rtxStatus.M17_Meta_Text[0] != '\0' && rtxStatus.M17_refl[0] != '\0'))
@@ -254,7 +281,7 @@ void _ui_drawModeInfo(ui_state_t* ui_state)
                         gfx_print(layout.line3_pos, layout.line3_font, TEXT_ALIGN_CENTER,
                                   color_white, "%s", message);
                     }
-
+#endif
                 // RF link (if present)
                 if(rtxStatus.M17_link[0] != '\0')
                 {
@@ -266,7 +293,11 @@ void _ui_drawModeInfo(ui_state_t* ui_state)
                 }
 
                 // Reflector (if present)
+#if defined(CONFIG_METATEXT)
                 if(rtxStatus.M17_refl[0] != '\0' && rtxStatus.M17_Meta_Text[0] == '\0')
+#else
+                if(rtxStatus.M17_refl[0] != '\0')
+#endif
                 {
                     gfx_drawSymbol(layout.line3_pos, layout.line4_symbol_size, TEXT_ALIGN_LEFT,
                                    color_white, SYMBOL_NETWORK);
@@ -274,11 +305,17 @@ void _ui_drawModeInfo(ui_state_t* ui_state)
                     gfx_print(layout.line3_pos, layout.line2_font, TEXT_ALIGN_CENTER,
                               color_white, "%s", rtxStatus.M17_refl);
                 }
+#ifdef PLATFORM_CS7000P
+                gfx_print(layout.top_pos, layout.top_font, TEXT_ALIGN_CENTER,
+                          yellow_fab413, "%s", "M17");
+#endif
             }
             else
             {
                 const char *dst = NULL;
+#if defined(CONFIG_METATEXT)
                 scrollStarted = false;
+#endif
                 if(ui_state->edit_mode)
                 {
                     dst = ui_state->new_callsign;
@@ -293,10 +330,96 @@ void _ui_drawModeInfo(ui_state_t* ui_state)
 
                 gfx_print(layout.line2_pos, layout.line2_font, TEXT_ALIGN_CENTER,
                           color_white, "M17 #%s", dst);
+#ifdef PLATFORM_CS7000P
+                gfx_print(layout.top_pos, layout.top_font, TEXT_ALIGN_CENTER,
+                          yellow_fab413, "%s", "M17");
+#endif
             }
             break;
         }
-        #endif
+#endif
+
+#if defined(CONFIG_P25)
+        case OPMODE_P25:
+        {
+            rtxStatus_t rtxStatus = rtx_getCurrentStatus();
+
+            if(rtxStatus.lsfOk)
+            {
+                gfx_drawSymbol(layout.line2_pos, layout.line2_symbol_size, TEXT_ALIGN_LEFT,
+                               color_white, SYMBOL_CALL_RECEIVED);
+                gfx_print(layout.line2_pos, layout.line2_font, TEXT_ALIGN_CENTER,
+                          color_white, "%d", rtxStatus.P25_DstId);
+                gfx_drawSymbol(layout.line1_pos, layout.line1_symbol_size, TEXT_ALIGN_LEFT,
+                               color_white, SYMBOL_CALL_MADE);
+                gfx_print(layout.line1_pos, layout.line2_font, TEXT_ALIGN_CENTER,
+                          color_white, "%d", rtxStatus.P25_SrcId);
+#ifdef PLATFORM_CS7000P
+                gfx_print(layout.top_pos, layout.top_font, TEXT_ALIGN_CENTER,
+                          yellow_fab413, "%s", "P25");
+#endif
+#ifdef PLATFORM_MD3x0
+                gfx_print(layout.top_pos, layout.top_font, TEXT_ALIGN_LEFT,
+                          yellow_fab413, "%s", "P25");
+#endif
+            }
+            else
+            {
+                char src[16];
+                char last[13];
+
+                if(ui_state->edit_srcid)
+                {
+                    sprintf(src, "%d", (int)last_state.settings.p25_srcId);
+                }
+                else
+                {
+                    if(state.settings.p25_srcId == 0)
+                        strcpy(src, "--");
+                    else
+#if !defined(PLATFORM_CS7000P) && !defined(PLATFORM_MD3x0)
+                        if(host_found)
+#endif
+                            sprintf(src, "%d", (int)state.settings.p25_srcId);
+                }
+#if !defined(PLATFORM_CS7000P) && !defined(PLATFORM_MD3x0)
+                if (host_found)
+                {
+#endif
+                	if(rtxStatus.P25_DstId == 0)
+                    {
+                        strcpy(last, "LAST");
+                    }
+                    else
+                        sprintf(last, "%d", (int)rtxStatus.P25_DstId);
+#if !defined(PLATFORM_CS7000P) && !defined(PLATFORM_MD3x0)
+                }
+                else
+                {
+                    strcpy(src, "Waiting on host");
+                    strcpy(last, "Receive Only");
+                }
+#endif
+                // Print P25 Source ID
+                gfx_print(layout.line1_pos, layout.line1_font, TEXT_ALIGN_CENTER,
+                          color_white, src);
+                // Print P25 Destination ID on line 2
+                gfx_print(layout.line2_pos, layout.line2_font, TEXT_ALIGN_CENTER,
+                          color_white, last);
+
+#ifdef PLATFORM_CS7000P
+                gfx_print(layout.top_pos, layout.top_font, TEXT_ALIGN_CENTER,
+                          yellow_fab413, "%s", "P25");
+#endif
+#ifdef PLATFORM_MD3x0
+                gfx_print(layout.top_pos, layout.top_font, TEXT_ALIGN_LEFT,
+                          yellow_fab413, "%s", "P25");
+#endif
+                break;
+            }
+            break;
+        }
+#endif
     }
 }
 
@@ -393,6 +516,7 @@ void _ui_drawMainBottom()
                            yellow_fab413);
             break;
         case OPMODE_DMR:
+        case OPMODE_P25:
             gfx_drawSmeterLevel(meter_pos,
                                 meter_width,
                                 meter_height,
