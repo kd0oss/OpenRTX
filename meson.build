@@ -101,6 +101,49 @@ ui_src_module17 = ['openrtx/src/ui/module17/ui.c',
                    'openrtx/src/ui/module17/ui_main.c',
                    'openrtx/src/ui/module17/ui_menu.c']
 
+p25_src     = ['openrtx/src/rtx/OpMode_P25.cpp']
+p25_src_com = ['openrtx/src/protocols/P25/P25RX.cpp',
+              'openrtx/src/protocols/DSTAR/Utils.cpp',
+              'openrtx/src/protocols/P25/P25TX.cpp',
+              'openrtx/src/protocols/P25/P25_IO.cpp',
+              'openrtx/src/protocols/P25/AMBEFEC.cpp',
+              'openrtx/src/protocols/P25/RS241213.cpp',
+              'openrtx/src/protocols/P25/P25Utils.cpp',
+              'openrtx/src/protocols/P25/P25NID.cpp',
+              'openrtx/src/protocols/P25/P25LowSpeedData.cpp',
+              'openrtx/src/protocols/P25/P25Data.cpp',
+              'openrtx/src/protocols/P25/P25_Audio.cpp',
+              'openrtx/src/protocols/P25/Hamming.cpp',
+              'openrtx/src/protocols/P25/Golay24128.cpp',
+              'openrtx/src/protocols/P25/BCH.cpp']
+
+imbe_vocoder_src =['openrtx/src/imbe_vocoder/aux_sub.cc',
+                  'openrtx/src/imbe_vocoder/basicop2.cc',
+                  'openrtx/src/imbe_vocoder/ch_decode.cc',
+                  'openrtx/src/imbe_vocoder/ch_encode.cc',
+                  'openrtx/src/imbe_vocoder/dc_rmv.cc',
+                  'openrtx/src/imbe_vocoder/decode.cc',
+                  'openrtx/src/imbe_vocoder/dsp_sub.cc',
+                  'openrtx/src/imbe_vocoder/encode.cc',
+                  'openrtx/src/imbe_vocoder/imbe_vocoder_impl.cc',
+                  'openrtx/src/imbe_vocoder/imbe_vocoder.cc',
+                  'openrtx/src/imbe_vocoder/math_sub.cc',
+                  'openrtx/src/imbe_vocoder/pe_lpf.cc',
+                  'openrtx/src/imbe_vocoder/pitch_est.cc',
+                  'openrtx/src/imbe_vocoder/pitch_ref.cc',
+                  'openrtx/src/imbe_vocoder/qnt_sub.cc',
+                  'openrtx/src/imbe_vocoder/rand_gen.cc',
+                  'openrtx/src/imbe_vocoder/sa_decode.cc',
+                  'openrtx/src/imbe_vocoder/sa_encode.cc',
+                  'openrtx/src/imbe_vocoder/sa_enh.cc',
+                  'openrtx/src/imbe_vocoder/tbls.cc',
+                  'openrtx/src/imbe_vocoder/uv_synt.cc',
+                  'openrtx/src/imbe_vocoder/v_synt.cc',
+                  'openrtx/src/imbe_vocoder/v_uv_det.cc']
+
+p25_audio_src   = ['openrtx/src/core/imbe_audio_codec.cpp']
+imbe_vocoder_inc = ['openrtx/src/imbe_vocoder']
+
 ##
 ## Selection of main entrypoint
 ##
@@ -526,6 +569,7 @@ cs7000_def += openrtx_def + stm32f405_def
 ## Connect Systems CS70000-PLUS
 ##
 cs7000p_src = ['platform/drivers/NVM/nvmem_CS7000.c',
+               'openrtx/src/core/arm_math.c',
                'platform/drivers/NVM/W25Qx.c',
                'platform/drivers/NVM/eeep.c',
                'platform/drivers/baseband/HR_C6000.cpp',
@@ -547,10 +591,10 @@ cs7000p_src = ['platform/drivers/NVM/nvmem_CS7000.c',
                'platform/targets/CS7000-PLUS/platform.c']
 
 cs7000p_inc = ['platform/targets/CS7000-PLUS']
-cs7000p_def = {'PLATFORM_CS7000P': '', 'timegm': 'mktime'}
+cs7000p_def = {'PLATFORM_CS7000P': '', 'timegm': 'mktime', 'CONFIG_P25': '', 'ARM_MATH_CM7': ''}
 
-cs7000p_src += openrtx_src + stm32h743_src + miosix_cm7_src + ui_src_default
-cs7000p_inc += openrtx_inc + stm32h743_inc + miosix_cm7_inc
+cs7000p_src += openrtx_src + stm32h743_src + miosix_cm7_src + ui_src_default + imbe_vocoder_src + p25_src + p25_src_com + p25_audio_src
+cs7000p_inc += openrtx_inc + stm32h743_inc + miosix_cm7_inc + imbe_vocoder_inc
 cs7000p_def += openrtx_def + stm32h743_def + miosix_cm7_def
 
 ##
